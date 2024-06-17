@@ -3,7 +3,7 @@ from torch import nn
 import torch.nn.functional as F
 import numpy as np
 from utils import cust_mul
-
+from dataloader import Loader
 
 class IMP_GCN(nn.Module):
     def __init__(self,
@@ -23,7 +23,8 @@ class IMP_GCN(nn.Module):
         self.keep_prob = keep_prob
         self.Graph = dataset.getSparseGraph()
         self.num_users = dataset.n_user
-        self.num_items = dataset.m_item
+        self.num_vloggers = dataset.n_vloggers
+        self.num_videos = dataset.n_videos
         self.groups = groups
         self.device = device
         self.l2_w = l2_w
@@ -32,7 +33,7 @@ class IMP_GCN(nn.Module):
 
     def __init_weight(self):
         self.embedding_user = torch.nn.Embedding(self.num_users, self.latent_dim)
-        self.embedding_item = torch.nn.Embedding(self.num_items, self.latent_dim)
+        self.embedding_item = torch.nn.Embedding(self.num_vloggers, self.latent_dim)
         self.fc = torch.nn.Linear(self.latent_dim, self.latent_dim)
         self.leaky = torch.nn.LeakyReLU()
         self.dropout = torch.nn.Dropout(p=0.4)
@@ -227,4 +228,7 @@ class IMP_GCN(nn.Module):
         # 返回评分
         return gamma
 
-
+if __name__ == '__main__':
+    dataset = Loader()
+    model = IMP_GCN(dataset=dataset)
+    model.computer()
