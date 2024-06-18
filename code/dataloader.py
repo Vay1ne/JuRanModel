@@ -333,26 +333,27 @@ class Loader(BasicDataset):
             user_uploader_graph = self._convert_sp_mat_to_sp_tensor(norm_adj)
             user_uploader_graph = user_uploader_graph.coalesce().to(world.device)
 
-            # pooling garph1 (a-i)
-            bundle_size = self.ground_truth_a_i.sum(axis=1) + 1e-8
-            ai_graph = sp.diags(1 / bundle_size.A.ravel()) @ self.ground_truth_a_i
-            sp.save_npz(self.path + '/pooling1_s_pre_adj_mat.npz', ai_graph)
-            pool1_graph = self._convert_sp_mat_to_sp_tensor(ai_graph)
-            pool1_graph = pool1_graph.coalesce().to(world.device)
+            # # pooling garph1 (a-i)
+            # bundle_size = self.ground_truth_a_i.sum(axis=1) + 1e-8
+            # ai_graph = sp.diags(1 / bundle_size.A.ravel()) @ self.ground_truth_a_i
+            # sp.save_npz(self.path + '/pooling1_s_pre_adj_mat.npz', ai_graph)
+            # pool1_graph = self._convert_sp_mat_to_sp_tensor(ai_graph)
+            # pool1_graph = pool1_graph.coalesce().to(world.device)
+            #
+            # #  pooling graph2 (i-a)
+            # sp.save_npz(self.path + '/pooling2_s_pre_adj_mat.npz', ai_graph.T)
+            # pool2_graph = self._convert_sp_mat_to_sp_tensor(ai_graph.T)
+            # pool2_graph = pool2_graph.coalesce().to(world.device)
+            #
+            # # pooling graph3 (i-u)
+            # video_size = self.UserVideoNet.sum(axis=1) + 1e-8
+            # u_i_graph = sp.diags(1 / video_size.A.ravel()) @ self.UserVideoNet
+            # sp.save_npz(self.path + '/pooling3_s_pre_adj_mat.npz', u_i_graph.T)
+            # pool3_graph = self._convert_sp_mat_to_sp_tensor(u_i_graph.T)
+            # pool3_graph = pool3_graph.coalesce().to(world.device)
 
-            #  pooling graph2 (i-a)
-            sp.save_npz(self.path + '/pooling2_s_pre_adj_mat.npz', ai_graph.T)
-            pool2_graph = self._convert_sp_mat_to_sp_tensor(ai_graph.T)
-            pool2_graph = pool2_graph.coalesce().to(world.device)
-
-            # pooling graph3 (i-u)
-            video_size = self.UserVideoNet.sum(axis=1) + 1e-8
-            u_i_graph = sp.diags(1 / video_size.A.ravel()) @ self.UserVideoNet
-            sp.save_npz(self.path + '/pooling3_s_pre_adj_mat.npz', u_i_graph.T)
-            pool3_graph = self._convert_sp_mat_to_sp_tensor(u_i_graph.T)
-            pool3_graph = pool3_graph.coalesce().to(world.device)
-
-        self.Graph = [user_video_graph, user_uploader_graph, pool1_graph, pool2_graph, pool3_graph]
+        # self.Graph = [user_video_graph, user_uploader_graph, pool1_graph, pool2_graph, pool3_graph]
+        self.Graph = [user_video_graph, user_uploader_graph]
 
         return self.Graph
 
