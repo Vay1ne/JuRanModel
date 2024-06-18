@@ -4,7 +4,9 @@ import torch.nn.functional as F
 import numpy as np
 from utils import cust_mul
 from dataloader import Loader
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 class IMP_GCN(nn.Module):
     def __init__(self,
@@ -36,7 +38,9 @@ class IMP_GCN(nn.Module):
 
     def __init_weight(self):
         self.embedding_user = torch.nn.Embedding(self.num_users, self.latent_dim)
-        self.embedding_item = torch.nn.Embedding(self.num_uploaders, self.latent_dim)
+        self.embedding_uploader = torch.nn.Embedding(self.num_uploaders, self.latent_dim)
+        self.embedding_video = torch.nn.Embedding(self.num_videos, self.latent_dim)
+
         self.fc = torch.nn.Linear(self.latent_dim, self.latent_dim)
         self.leaky = torch.nn.LeakyReLU()
         self.dropout = torch.nn.Dropout(p=0.4)
@@ -44,9 +48,10 @@ class IMP_GCN(nn.Module):
         self.f = nn.Sigmoid()
 
         # nn.init.normal_(self.embedding_user.weight, std=0.1)
-        # nn.init.normal_(self.embedding_item.weight, std=0.1)
+        # nn.init.normal_(self.embedding_uploader.weight, std=0.1)
         nn.init.xavier_uniform_(self.embedding_user.weight, gain=1)
-        nn.init.xavier_uniform_(self.embedding_item.weight, gain=1)
+        nn.init.xavier_uniform_(self.embedding_uploader.weight, gain=1)
+        nn.init.xavier_uniform_(self.embedding_video.weight, gain=1)
         # nn.init.xavier_uniform_(self.fc.weight, gain=1)
         # nn.init.xavier_uniform_(self.fc_g.weight, gain=1)
 
@@ -88,12 +93,12 @@ class IMP_GCN(nn.Module):
             graph.append(self.__dropout_x(self.Graph[i], keep_prob))
         return graph
 
-    def computer(self, dropout_bool):
+    def computer_ua(self, dropout_bool):
         # 获取用户和项目的嵌入权重
         users_emb = self.embedding_user.weight
-        items_emb = self.embedding_item.weight
+        uploaders_emb = self.embedding_uploader.weight
         # 将用户和项目的嵌入拼接在一起
-        all_emb = torch.cat([users_emb, items_emb])
+        all_emb = torch.cat([users_emb, uploaders_emb])
 
         # 如果在训练模式并且使用dropout，则应用dropout到图结构
         if dropout_bool and self.training:
@@ -157,14 +162,88 @@ class IMP_GCN(nn.Module):
             # all_emb = all_emb_list[-1]
 
         # 分别获取用户和项目的嵌入
-        users, items = torch.split(all_emb, [self.num_users, self.num_uploaders])
-        return users, items
+        users, uploaders = torch.split(all_emb, [self.num_users, self.num_uploaders])
+        return users, uploaders
 
-    def get_user_uploader_embedding(self):
-        users_0, items_0 = self.computer(self.dropout_bool)
-        users_1, items_1 = self.computer(1)
-        users_2, items_2 = self.computer(1)
-        return [users_0, users_1, users_2], [items_0, items_1, items_2]
+    def computer_uv(self, dropout_bool):
+        # 获取用户和项目的嵌入权重
+        users_emb = self.embedding_user.weight
+        videos_emb = self.embedding_video.weight
+        # 将用户和项目的嵌入拼接在一起
+        all_emb = torch.cat([users_emb, videos_emb])
+
+        # 如果在训练模式并且使用dropout，则应用dropout到图结构
+        if dropout_bool and self.training:
+            g_droped = self.__dropout(self.keep_prob)
+        else:
+            # 否则使用原始的图结构
+            g_droped = self.Graph
+
+        # 计算自有嵌入和邻居嵌入
+        ego_embed = all_emb
+        side_embed = torch.sparse.mm(g_droped[0], all_emb)
+
+        # 通过全连接层和激活函数计算临时嵌入
+        temp = self.dropout(self.leaky(self.fc(ego_embed + side_embed)))
+        # 计算分组得分
+        group_scores = self.dropout(self.fc_g(temp))
+
+        # 获取得分最高的组索引
+        a_top, a_top_idx = torch.topk(group_scores, k=1, sorted=False)
+        one_hot_emb = torch.eq(group_scores, a_top).float()
+
+        # 分别获取用户和项目的one-hot嵌入表示
+        u_one_hot, i_one_hot = torch.split(one_hot_emb, [self.num_users, self.num_videos])
+        # 将项目的one-hot嵌入表示设置为全1
+        i_one_hot = torch.ones(i_one_hot.shape).to(self.device)
+        # 将用户和项目的one-hot嵌入表示拼接在一起并转置
+        one_hot_emb = torch.cat([u_one_hot, i_one_hot]).t()
+
+        # 创建子图列表
+        subgraph_list = []
+        for g in range(self.groups):
+            # 通过元素乘法生成子图
+            temp = cust_mul(g_droped[0], one_hot_emb[g], 1)
+            temp = cust_mul(temp, one_hot_emb[g], 0)
+            subgraph_list.append(temp)
+
+        # 初始化所有层的嵌入列表
+        all_emb_list = [[None for _ in range(self.groups)] for _ in range(self.n_layers)]
+        for g in range(0, self.groups):
+            # 第0层的嵌入为自有嵌入
+            all_emb_list[0][g] = ego_embed
+
+        # 计算每一层的嵌入
+        for k in range(1, self.n_layers):
+            for g in range(self.groups):
+                # 通过子图计算每一层的嵌入
+                all_emb_list[k][g] = torch.sparse.mm(subgraph_list[g], all_emb_list[k - 1][g])
+
+        # 对每一层的嵌入进行求和
+        all_emb_list = [torch.sum(torch.stack(x), 0) for x in all_emb_list]
+
+        # 如果使用单层嵌入，直接取最后一层的嵌入
+        if self.single:
+            all_emb = all_emb_list[-1]
+        else:
+            # 否则对所有层的嵌入进行加权求和
+            weights = [0.2, 0.2, 0.2, 0.2, 0.2]
+            all_emb_list = [x * w for x, w in zip(all_emb_list, weights)]
+            all_emb = torch.sum(torch.stack(all_emb_list), 0)
+            # all_emb = torch.mean(torch.stack(all_emb_list),0)
+            # all_emb = all_emb_list[-1]
+
+        # 分别获取用户和项目的嵌入
+        users, videos = torch.split(all_emb, [self.num_users, self.num_videos])
+        return users, videos
+
+    def get_all_embedding(self):
+        user_0, uploader_0 = self.computer_ua(self.dropout_bool)
+        user_1, uploader_1 = self.computer_ua(1)
+        user_2, uploader_2 = self.computer_ua(1)
+        user_3, video_0 = self.computer_uv(self.dropout_bool)
+
+        return [user_0, user_1, user_2, user_3], [uploader_0, uploader_1, uploader_2], [video_0]
 
     def getUsersRating(self, users):
         all_users, all_items = self.computer()
@@ -300,5 +379,5 @@ class IMP_GCN(nn.Module):
 if __name__ == '__main__':
     dataset = Loader()
     model = IMP_GCN(dataset=dataset, device=device).to(device)
-    user_ebmdding, uploader_embedding = model.get_user_uploader_embedding()
-    print(model.calc_crosscl_loss(user_ebmdding, uploader_embedding))
+    user_ebmdding, uploader_embedding, video_embedding = model.get_all_embedding()
+    # print(model.calc_crosscl_loss(user_ebmdding, uploader_embedding))
