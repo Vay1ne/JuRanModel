@@ -5,16 +5,18 @@ import numpy as np
 from utils import cust_mul
 from dataloader import Loader
 
+
 class IMP_GCN(nn.Module):
     def __init__(self,
                  dataset,
                  latent_dim=200,
                  n_layers=6,
-                 keep_prob=0.9,
+                 keep_prob=0.5,
                  groups=4,
                  device=torch.device('cuda'),
                  dropout_bool=False,
                  l2_w=1e-4,
+                 cl_temp=0.1,
                  single=False):
         super(IMP_GCN, self).__init__()
         self.latent_dim = latent_dim
@@ -28,6 +30,7 @@ class IMP_GCN(nn.Module):
         self.groups = groups
         self.device = device
         self.l2_w = l2_w
+        self.cl_temp = cl_temp
         self.single = single
         self.__init_weight()
 
@@ -77,10 +80,15 @@ class IMP_GCN(nn.Module):
         return g
 
     def __dropout(self, keep_prob):
-        graph = self.__dropout_x(self.Graph, keep_prob)
+        # graph = self.__dropout_x(self.Graph, keep_prob)
+        # return graph
+        graph = []
+        length = len(self.Graph)
+        for i in range(length):
+            graph.append(self.__dropout_x(self.Graph[i], keep_prob))
         return graph
 
-    def computer(self):
+    def computer(self, dropout_bool):
         # 获取用户和项目的嵌入权重
         users_emb = self.embedding_user.weight
         items_emb = self.embedding_item.weight
@@ -88,7 +96,7 @@ class IMP_GCN(nn.Module):
         all_emb = torch.cat([users_emb, items_emb])
 
         # 如果在训练模式并且使用dropout，则应用dropout到图结构
-        if self.dropout_bool and self.training:
+        if dropout_bool and self.training:
             g_droped = self.__dropout(self.keep_prob)
         else:
             # 否则使用原始的图结构
@@ -96,7 +104,7 @@ class IMP_GCN(nn.Module):
 
         # 计算自有嵌入和邻居嵌入
         ego_embed = all_emb
-        side_embed = torch.sparse.mm(g_droped, all_emb)
+        side_embed = torch.sparse.mm(g_droped[1], all_emb)
 
         # 通过全连接层和激活函数计算临时嵌入
         temp = self.dropout(self.leaky(self.fc(ego_embed + side_embed)))
@@ -108,7 +116,7 @@ class IMP_GCN(nn.Module):
         one_hot_emb = torch.eq(group_scores, a_top).float()
 
         # 分别获取用户和项目的one-hot嵌入表示
-        u_one_hot, i_one_hot = torch.split(one_hot_emb, [self.num_users, self.num_items])
+        u_one_hot, i_one_hot = torch.split(one_hot_emb, [self.num_users, self.num_vloggers])
         # 将项目的one-hot嵌入表示设置为全1
         i_one_hot = torch.ones(i_one_hot.shape).to(self.device)
         # 将用户和项目的one-hot嵌入表示拼接在一起并转置
@@ -118,7 +126,7 @@ class IMP_GCN(nn.Module):
         subgraph_list = []
         for g in range(self.groups):
             # 通过元素乘法生成子图
-            temp = cust_mul(g_droped, one_hot_emb[g], 1)
+            temp = cust_mul(g_droped[1], one_hot_emb[g], 1)
             temp = cust_mul(temp, one_hot_emb[g], 0)
             subgraph_list.append(temp)
 
@@ -149,8 +157,14 @@ class IMP_GCN(nn.Module):
             # all_emb = all_emb_list[-1]
 
         # 分别获取用户和项目的嵌入
-        users, items = torch.split(all_emb, [self.num_users, self.num_items])
+        users, items = torch.split(all_emb, [self.num_users, self.num_vloggers])
         return users, items
+
+    def get_user_vlogger_embedding(self):
+        users_0, items_0 = self.computer(self.dropout_bool)
+        users_1, items_1 = self.computer(1)
+        users_2, items_2 = self.computer(1)
+        return [users_0, users_1, users_2], [items_0, items_1, items_2]
 
     def getUsersRating(self, users):
         all_users, all_items = self.computer()
@@ -209,6 +223,60 @@ class IMP_GCN(nn.Module):
         # 返回总损失，包括BPR损失和正则化损失
         return loss + self.l2_w * reg_loss
 
+    def calc_crosscl_loss(self, users_emb, posVlogger_emb):
+        # 提取用户嵌入
+        p_user_emb1 = users_emb[1]
+        p_user_emb2 = users_emb[2]
+
+        # 提取正样本视频博主嵌入
+        p_vlogger_emb1 = posVlogger_emb[1]
+        p_vlogger_emb2 = posVlogger_emb[2]
+
+        # 对用户嵌入进行归一化
+        normalize_emb_user1 = F.normalize(p_user_emb1, dim=1)
+        normalize_emb_user2 = F.normalize(p_user_emb2, dim=1)
+
+        # 对视频博主嵌入进行归一化
+        normalize_emb_vlogger1 = F.normalize(p_vlogger_emb1, dim=1)
+        normalize_emb_vlogger2 = F.normalize(p_vlogger_emb2, dim=1)
+
+        # 计算用户的正样本得分
+        pos_score_u = torch.sum(torch.mul(normalize_emb_user1, normalize_emb_user2), dim=1)
+
+        # 计算视频博主的正样本得分
+        pos_score_a = torch.sum(torch.mul(normalize_emb_vlogger1, normalize_emb_vlogger2), dim=1)
+
+        # 计算用户的总得分
+        ttl_score_u = torch.matmul(normalize_emb_user1, normalize_emb_user2.T)
+
+        # 计算视频博主的总得分
+        ttl_score_a = torch.matmul(normalize_emb_vlogger1, normalize_emb_vlogger2.T)
+
+        # 根据对比学习温度参数决定损失计算方式
+        if self.cl_temp < 0.05:
+            # 计算用户的InfoNCE损失
+            ssl_logits_user = ttl_score_u - pos_score_u[:, None]  # [batch_size, num_users]
+
+            # 计算视频博主的InfoNCE损失
+            ssl_logits_vlogger = ttl_score_a - pos_score_a[:, None]  # [batch_size, num_users]
+
+            # 计算InfoNCE Loss
+            clogits_user = torch.mean(torch.logsumexp(ssl_logits_user / self.cl_temp, dim=1))
+            clogits_vlogger = torch.mean(torch.logsumexp(ssl_logits_vlogger / self.cl_temp, dim=1))
+            # 取三者平均作为最终对比学习损失
+            cl_loss = (torch.mean(clogits_user) + torch.mean(clogits_vlogger)) / 3
+        else:
+            # 当温度参数较大时，计算正样本得分的指数
+            pos_score_u = torch.exp(pos_score_u / self.cl_temp)
+            ttl_score_u = torch.sum(torch.exp(ttl_score_u / self.cl_temp), dim=1)
+            pos_score_a = torch.exp(pos_score_a / self.cl_temp)
+            ttl_score_a = torch.sum(torch.exp(ttl_score_a / self.cl_temp), dim=1)
+
+            # 计算对比学习损失
+            cl_loss = (torch.mean(torch.log(pos_score_u / ttl_score_u)) + torch.mean(
+                torch.log(pos_score_a / ttl_score_a))) / 2
+        return cl_loss
+
     def forward(self, users, items):
         # 调用 computer 方法，计算所有用户和所有项目的嵌入向量
         all_users, all_items = self.computer()
@@ -228,7 +296,9 @@ class IMP_GCN(nn.Module):
         # 返回评分
         return gamma
 
+
 if __name__ == '__main__':
     dataset = Loader()
-    model = IMP_GCN(dataset=dataset)
-    model.computer()
+    model = IMP_GCN(dataset=dataset).cuda()
+    user_ebmdding, vlogger_embedding = model.get_user_vlogger_embedding()
+    print(model.calc_crosscl_loss(user_ebmdding, vlogger_embedding))
