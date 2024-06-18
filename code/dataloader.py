@@ -20,7 +20,7 @@ class BasicDataset(Dataset):
         raise NotImplementedError
 
     @property
-    def n_vloggers(self):
+    def n_uploaders(self):
         raise NotImplementedError
 
     @property
@@ -44,7 +44,7 @@ class BasicDataset(Dataset):
         raise NotImplementedError
 
     @property
-    def vlogger_list(self):
+    def uploader_list(self):
         raise NotImplementedError
 
     @property
@@ -89,13 +89,13 @@ class Loader(BasicDataset):
         self.mode = self.mode_dict['train']
         self.n_user = 0
         self.n_video = 0
-        self.n_vlogger = 0
+        self.n_uploader = 0
         user_video_file = path + '/user_video_data.txt'
-        user_vlogger_file = path + '/user_vlogger_data.txt'
-        vlogger_video_file = path + '/vlogger_video_data.txt'
+        user_uploader_file = path + '/user_uploader_data.txt'
+        uploader_video_file = path + '/uploader_video_data.txt'
         size_file = path + '/data_size.txt'
         self.path = path
-        trainUniqueUsers, trainVideo, trainUser, trainVlogger = [], [], [], []
+        trainUniqueUsers, trainVideo, trainUser, trainUploader = [], [], [], []
         testUniqueUsers, testVideo, testUser = [], [], []
         validUniqueUsers, validVideo, validUser = [], [], []
 
@@ -104,7 +104,7 @@ class Loader(BasicDataset):
         self.testDataSize = 0
 
         with open(size_file) as f:
-            self.n_user, self.n_video, self.n_vlogger = [int(s) for s in f.readline().split('\t')][:3]
+            self.n_user, self.n_video, self.n_uploader = [int(s) for s in f.readline().split('\t')][:3]
 
         # u-i train
         with open(user_video_file) as f:
@@ -150,37 +150,37 @@ class Loader(BasicDataset):
         self.testVideo = np.array(testVideo)
 
         # u-a
-        with open(user_vlogger_file) as f:
+        with open(user_uploader_file) as f:
             for l in f.readlines():
                 if len(l) > 0:
                     l = l.strip('\n').split(' ')
-                    vloggers = [int(i) for i in l[1:-2]]
+                    uploaders = [int(i) for i in l[1:-2]]
                     uid = int(l[0])
                     # trainUniqueUsers.append(uid)  # 注销这里，否则trainUniqueUsers会多一倍数据
-                    trainUser.extend([uid] * len(vloggers))
-                    trainVlogger.extend(vloggers)
-        self.trainVlogger = np.array(trainVlogger)
+                    trainUser.extend([uid] * len(uploaders))
+                    trainUploader.extend(uploaders)
+        self.trainUploader = np.array(trainUploader)
 
-        # 读取包含vlogger和视频配对关系的文件
-        with open(vlogger_video_file, 'r') as f:
-            # 将文件中的每一行转换为一个包含vlogger和视频ID的元组，并存入列表
+        # 读取包含uploader和视频配对关系的文件
+        with open(uploader_video_file, 'r') as f:
+            # 将文件中的每一行转换为一个包含uploader和视频ID的元组，并存入列表
             self.A_I_pairs = list(map(lambda s: tuple(int(i) for i in s[:-1].split('\t')), f.readlines()))
         # 将元组列表转换为numpy整数数组
         indice = np.array(self.A_I_pairs, dtype=np.int32)
-        # 创建一个与vlogger视频对数目相同的全为1的浮点数组
+        # 创建一个与uploader视频对数目相同的全为1的浮点数组
         values = np.ones(len(self.A_I_pairs), dtype=np.float32)
         # 使用indices和values数组创建一个COO格式的稀疏矩阵，然后转换为CSR格式。
-        # 这个矩阵表示vlogger和视频之间的真实关联关系
+        # 这个矩阵表示uploader和视频之间的真实关联关系
         self.ground_truth_a_i = sp.coo_matrix(
-            (values, (indice[:, 0], indice[:, 1])), shape=(self.n_vlogger, self.n_video)).tocsr()
+            (values, (indice[:, 0], indice[:, 1])), shape=(self.n_uploader, self.n_video)).tocsr()
 
-        # 按视频ID对vlogger视频对进行排序
+        # 按视频ID对uploader视频对进行排序
         self.A_I_pairs = sorted(self.A_I_pairs, key=lambda x: x[-1])
 
-        # 创建一个字典，键为视频ID，值为vlogger ID
+        # 创建一个字典，键为视频ID，值为uploader ID
         self.i_a_dict = dict(list(map(lambda x: x[::-1], self.A_I_pairs)))
-        # 从字典中提取vlogger ID的列表
-        self._vloggerList = list(self.i_a_dict.values())
+        # 从字典中提取uploader ID的列表
+        self._uploaderList = list(self.i_a_dict.values())
 
         # 创建用户和视频的二分图
         self.UserVideoNet = csr_matrix((np.ones(len(self.trainUser)), (self.trainUser, self.trainVideo)),
@@ -192,20 +192,20 @@ class Loader(BasicDataset):
         self.videos_D = np.array(self.UserVideoNet.sum(axis=0)).squeeze()
         self.videos_D[self.videos_D == 0.] = 1.
 
-        # 创建用户和vlogger的二分图
-        self.UserVloggerNet = csr_matrix((np.ones(len(self.trainUser)), (self.trainUser, self.trainVlogger)),
-                                         shape=(self.n_user, self.n_vlogger))
-        # 计算每个用户关联的vlogger数量，若数量为0则设为1
-        self.users2_D = np.array(self.UserVloggerNet.sum(axis=1)).squeeze()
+        # 创建用户和uploader的二分图
+        self.UseruploaderNet = csr_matrix((np.ones(len(self.trainUser)), (self.trainUser, self.trainUploader)),
+                                          shape=(self.n_user, self.n_uploader))
+        # 计算每个用户关联的uploader数量，若数量为0则设为1
+        self.users2_D = np.array(self.UseruploaderNet.sum(axis=1)).squeeze()
         self.users2_D[self.users2_D == 0.] = 1
-        # 计算每个vlogger关联的用户数量，若数量为0则设为1
-        self.vloggers_D = np.array(self.UserVloggerNet.sum(axis=0)).squeeze()
-        self.vloggers_D[self.vloggers_D == 0.] = 1.
+        # 计算每个uploader关联的用户数量，若数量为0则设为1
+        self.uploaders_D = np.array(self.UseruploaderNet.sum(axis=0)).squeeze()
+        self.uploaders_D[self.uploaders_D == 0.] = 1.
 
         # 预先计算每个用户关联的所有视频
         self._allPos = self.getUserPosVideos(list(range(self.n_user)))
-        # 预先计算每个用户关联的所有vlogger
-        self._allPos2 = self.getUserPosVloggers(list(range(self.n_user)))
+        # 预先计算每个用户关联的所有uploader
+        self._allPos2 = self.getUserPosuploaders(list(range(self.n_user)))
         # 构建验证集字典
         self.__validDict = self.__build_valid()
         # 构建测试集字典
@@ -222,8 +222,8 @@ class Loader(BasicDataset):
         return self.n_video
 
     @property
-    def n_vloggers(self):
-        return self.n_vlogger
+    def n_uploaders(self):
+        return self.n_uploader
 
     @property
     def trainDataSize(self):
@@ -242,8 +242,8 @@ class Loader(BasicDataset):
         return self._allPos
 
     @property
-    def vlogger_list(self):
-        return self._vloggerList
+    def uploader_list(self):
+        return self._uploaderList
 
     @property
     def allPos2(self):
@@ -264,10 +264,10 @@ class Loader(BasicDataset):
             user_video_graph = self._convert_sp_mat_to_sp_tensor(pre_adj_mat)
             user_video_graph = user_video_graph.coalesce().to(world.device)
 
-            pre_adj_mat = sp.load_npz(self.path + '/user_vlogger_s_pre_adj_mat.npz')
+            pre_adj_mat = sp.load_npz(self.path + '/user_uploader_s_pre_adj_mat.npz')
             print("successfully loaded...")
-            user_vlogger_graph = self._convert_sp_mat_to_sp_tensor(pre_adj_mat)
-            user_vlogger_graph = user_vlogger_graph.coalesce().to(world.device)
+            user_uploader_graph = self._convert_sp_mat_to_sp_tensor(pre_adj_mat)
+            user_uploader_graph = user_uploader_graph.coalesce().to(world.device)
 
             pre_adj_mat = sp.load_npz(self.path + '/pooling1_s_pre_adj_mat.npz')
             print("successfully loaded...")
@@ -287,11 +287,11 @@ class Loader(BasicDataset):
         except:
             print("generating adjacency matrix")
 
-            user_video_adj, user_vlogger_adj = self.generate_user_video_vlogger_user_adj(self.UserVideoNet,
-                                                                                         self.UserVloggerNet,
-                                                                                         self.ground_truth_a_i, p=0.4,
-                                                                                         q=0.1
-                                                                                         )
+            user_video_adj, user_uploader_adj = self.generate_user_video_uploader_user_adj(self.UserVideoNet,
+                                                                                           self.UseruploaderNet,
+                                                                                           self.ground_truth_a_i, p=0.4,
+                                                                                           q=0.1
+                                                                                           )
             # u-i graph
             adj_mat = sp.dok_matrix((self.n_user + self.n_video, self.n_user + self.n_video), dtype=np.float32)
             adj_mat = adj_mat.tolil()
@@ -313,9 +313,9 @@ class Loader(BasicDataset):
             user_video_graph = user_video_graph.coalesce().to(world.device)
 
             # u-a graph
-            adj_mat = sp.dok_matrix((self.n_user + self.n_vlogger, self.n_user + self.n_vlogger), dtype=np.float32)
+            adj_mat = sp.dok_matrix((self.n_user + self.n_uploader, self.n_user + self.n_uploader), dtype=np.float32)
             adj_mat = adj_mat.tolil()
-            R = user_vlogger_adj.tolil()
+            R = user_uploader_adj.tolil()
             adj_mat[:self.n_user, self.n_user:] = R
             adj_mat[self.n_user:, :self.n_user] = R.T
             adj_mat = adj_mat.todok()
@@ -329,9 +329,9 @@ class Loader(BasicDataset):
             norm_adj = d_mat.dot(adj_mat)
             norm_adj = norm_adj.dot(d_mat)
             norm_adj = norm_adj.tocsr()
-            sp.save_npz(self.path + '/user_vlogger_s_pre_adj_mat.npz', norm_adj)
-            user_vlogger_graph = self._convert_sp_mat_to_sp_tensor(norm_adj)
-            user_vlogger_graph = user_vlogger_graph.coalesce().to(world.device)
+            sp.save_npz(self.path + '/user_uploader_s_pre_adj_mat.npz', norm_adj)
+            user_uploader_graph = self._convert_sp_mat_to_sp_tensor(norm_adj)
+            user_uploader_graph = user_uploader_graph.coalesce().to(world.device)
 
             # pooling garph1 (a-i)
             bundle_size = self.ground_truth_a_i.sum(axis=1) + 1e-8
@@ -352,24 +352,24 @@ class Loader(BasicDataset):
             pool3_graph = self._convert_sp_mat_to_sp_tensor(u_i_graph.T)
             pool3_graph = pool3_graph.coalesce().to(world.device)
 
-        self.Graph = [user_video_graph, user_vlogger_graph, pool1_graph, pool2_graph, pool3_graph]
+        self.Graph = [user_video_graph, user_uploader_graph, pool1_graph, pool2_graph, pool3_graph]
 
         return self.Graph
 
-    def generate_user_video_vlogger_user_adj(self, user_video_adj, user_vlogger_adj, vlogger_video_adj, p, q):
+    def generate_user_video_uploader_user_adj(self, user_video_adj, user_uploader_adj, uploader_video_adj, p, q):
         user_video_adj = user_video_adj.tolil()
-        user_vlogger_adj = user_vlogger_adj.tolil()
-        vlogger_video_adj = vlogger_video_adj.tolil()
+        user_uploader_adj = user_uploader_adj.tolil()
+        uploader_video_adj = uploader_video_adj.tolil()
 
         new_user_video_adj = user_video_adj.copy()
-        new_user_vlogger_adj = user_vlogger_adj.copy()
+        new_user_uploader_adj = user_uploader_adj.copy()
         for user in range(self.n_user):
             if np.random.random() <= p:
-                current_node = np.random.choice(user_vlogger_adj[user].nonzero()[1])
+                current_node = np.random.choice(user_uploader_adj[user].nonzero()[1])
                 # U-A-U
                 if np.random.random() <= q:
-                    # get users interacted with vlogger
-                    neighbors = np.array(user_vlogger_adj.T[current_node].nonzero()[1])
+                    # get users interacted with uploader
+                    neighbors = np.array(user_uploader_adj.T[current_node].nonzero()[1])
                     neighbors = neighbors[~np.in1d(neighbors, user)]
                     current_node = np.random.choice(neighbors)
                     related_videos = user_video_adj[user].nonzero()[1]
@@ -377,8 +377,8 @@ class Loader(BasicDataset):
                         new_user_video_adj[current_node, video] += 1
                 # U-A-I
                 else:
-                    # get videos interacted with vlogger
-                    neighbors = np.array(vlogger_video_adj[current_node].nonzero()[1])
+                    # get videos interacted with uploader
+                    neighbors = np.array(uploader_video_adj[current_node].nonzero()[1])
                     current_node = np.random.choice(neighbors)
                     new_user_video_adj[user, current_node] += 1
 
@@ -390,11 +390,11 @@ class Loader(BasicDataset):
                     neighbors = np.array(user_video_adj.T[current_node].nonzero()[1])
                     neighbors = neighbors[~np.in1d(neighbors, user)]
                     current_node = np.random.choice(neighbors)
-                    related_vloggers = user_vlogger_adj[user].nonzero()[1]
-                    for vlogger in related_vloggers:
-                        new_user_vlogger_adj[current_node, vlogger] += 1
+                    related_uploaders = user_uploader_adj[user].nonzero()[1]
+                    for uploader in related_uploaders:
+                        new_user_uploader_adj[current_node, uploader] += 1
 
-        return new_user_video_adj.tocsr(), new_user_vlogger_adj.tocsr()
+        return new_user_video_adj.tocsr(), new_user_uploader_adj.tocsr()
 
     def __build_valid(self):
         """
@@ -442,11 +442,11 @@ class Loader(BasicDataset):
             posVideos.append(self.UserVideoNet[user].nonzero()[1])
         return posVideos
 
-    def getUserPosVloggers(self, users):
-        posVloggers = []
+    def getUserPosuploaders(self, users):
+        posuploaders = []
         for user in users:
-            posVloggers.append(self.UserVloggerNet[user].nonzero()[1])
-        return posVloggers
+            posuploaders.append(self.UseruploaderNet[user].nonzero()[1])
+        return posuploaders
 
 
 if __name__ == '__main__':

@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 from utils import cust_mul
 from dataloader import Loader
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class IMP_GCN(nn.Module):
     def __init__(self,
@@ -299,6 +299,6 @@ class IMP_GCN(nn.Module):
 
 if __name__ == '__main__':
     dataset = Loader()
-    model = IMP_GCN(dataset=dataset).cuda()
+    model = IMP_GCN(dataset=dataset, device=device).to(device)
     user_ebmdding, vlogger_embedding = model.get_user_vlogger_embedding()
     print(model.calc_crosscl_loss(user_ebmdding, vlogger_embedding))
