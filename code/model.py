@@ -237,13 +237,18 @@ class IMP_GCN(nn.Module):
         users, videos = torch.split(all_emb, [self.num_users, self.num_videos])
         return users, videos
 
+    def compute_video1_embedding(self):
+        return 1
+        pass
+
     def get_all_embedding(self):
         user_0, uploader_0 = self.computer_ua(self.dropout_bool)
         user_1, uploader_1 = self.computer_ua(1)
         user_2, uploader_2 = self.computer_ua(1)
         user_3, video_0 = self.computer_uv(self.dropout_bool)
+        video_1 = self.compute_video1_embedding()
 
-        return [user_0, user_1, user_2, user_3], [uploader_0, uploader_1, uploader_2], [video_0]
+        return [user_0, user_1, user_2, user_3], [uploader_0, uploader_1, uploader_2], [video_0, video_1]
 
     def getUsersRating(self, users):
         all_users, all_items = self.computer()
@@ -302,31 +307,37 @@ class IMP_GCN(nn.Module):
         # 返回总损失，包括BPR损失和正则化损失
         return loss + self.l2_w * reg_loss
 
-    def calc_crosscl_loss(self, users_emb, posuploader_emb):
+    def calc_crosscl_loss(self, users_emb, uploader_emb):
         # 提取用户嵌入
-        p_user_emb1 = users_emb[1]
-        p_user_emb2 = users_emb[2]
+        user_emb0 = users_emb[0]
+        user_emb1 = users_emb[1]
+        user_emb2 = users_emb[2]
+        user_emb3 = users_emb[3]
 
-        # 提取正样本视频博主嵌入
-        p_uploader_emb1 = posuploader_emb[1]
-        p_uploader_emb2 = posuploader_emb[2]
+        # 提取视频博主嵌入
+        uploader_emb1 = uploader_emb[1]
+        uploader_emb2 = uploader_emb[2]
 
         # 对用户嵌入进行归一化
-        normalize_emb_user1 = F.normalize(p_user_emb1, dim=1)
-        normalize_emb_user2 = F.normalize(p_user_emb2, dim=1)
+        normalize_emb_user0 = F.normalize(user_emb0, dim=1)
+        normalize_emb_user1 = F.normalize(user_emb1, dim=1)
+        normalize_emb_user2 = F.normalize(user_emb2, dim=1)
+        normalize_emb_user3 = F.normalize(user_emb3, dim=1)
 
         # 对视频博主嵌入进行归一化
-        normalize_emb_uploader1 = F.normalize(p_uploader_emb1, dim=1)
-        normalize_emb_uploader2 = F.normalize(p_uploader_emb2, dim=1)
+        normalize_emb_uploader1 = F.normalize(uploader_emb1, dim=1)
+        normalize_emb_uploader2 = F.normalize(uploader_emb2, dim=1)
 
         # 计算用户的正样本得分
-        pos_score_u = torch.sum(torch.mul(normalize_emb_user1, normalize_emb_user2), dim=1)
+        score_u1 = torch.sum(torch.mul(normalize_emb_user1, normalize_emb_user2), dim=1)
+        score_u2 = torch.sum(torch.mul(normalize_emb_user0, normalize_emb_user3), dim=1)
 
         # 计算视频博主的正样本得分
-        pos_score_a = torch.sum(torch.mul(normalize_emb_uploader1, normalize_emb_uploader2), dim=1)
+        score_a = torch.sum(torch.mul(normalize_emb_uploader1, normalize_emb_uploader2), dim=1)
 
         # 计算用户的总得分
-        ttl_score_u = torch.matmul(normalize_emb_user1, normalize_emb_user2.T)
+        ttl_score_u1 = torch.matmul(normalize_emb_user1, normalize_emb_user2.T)
+        ttl_score_u2 = torch.matmul(normalize_emb_user0, normalize_emb_user3.T)
 
         # 计算视频博主的总得分
         ttl_score_a = torch.matmul(normalize_emb_uploader1, normalize_emb_uploader2.T)
@@ -334,26 +345,32 @@ class IMP_GCN(nn.Module):
         # 根据对比学习温度参数决定损失计算方式
         if self.cl_temp < 0.05:
             # 计算用户的InfoNCE损失
-            ssl_logits_user = ttl_score_u - pos_score_u[:, None]  # [batch_size, num_users]
+            ssl_logits_user1 = ttl_score_u1 - score_u1[:, None]  # [batch_size, num_users]
+            ssl_logits_user2 = ttl_score_u2 - score_u2[:, None]  # [batch_size, num_users]
 
             # 计算视频博主的InfoNCE损失
-            ssl_logits_uploader = ttl_score_a - pos_score_a[:, None]  # [batch_size, num_users]
+            ssl_logits_uploader = ttl_score_a - score_a[:, None]  # [batch_size, num_users]
 
             # 计算InfoNCE Loss
-            clogits_user = torch.mean(torch.logsumexp(ssl_logits_user / self.cl_temp, dim=1))
+            clogits_user1 = torch.mean(torch.logsumexp(ssl_logits_user1 / self.cl_temp, dim=1))
+            clogits_user2 = torch.mean(torch.logsumexp(ssl_logits_user2 / self.cl_temp, dim=1))
             clogits_uploader = torch.mean(torch.logsumexp(ssl_logits_uploader / self.cl_temp, dim=1))
             # 取三者平均作为最终对比学习损失
-            cl_loss = (torch.mean(clogits_user) + torch.mean(clogits_uploader)) / 3
+            cl_loss = (torch.mean(clogits_user1) + torch.mean(clogits_user2) + torch.mean(clogits_uploader)) / 3
         else:
             # 当温度参数较大时，计算正样本得分的指数
-            pos_score_u = torch.exp(pos_score_u / self.cl_temp)
-            ttl_score_u = torch.sum(torch.exp(ttl_score_u / self.cl_temp), dim=1)
-            pos_score_a = torch.exp(pos_score_a / self.cl_temp)
+            score_u1 = torch.exp(score_u1 / self.cl_temp)
+            ttl_score_u1 = torch.sum(torch.exp(ttl_score_u1 / self.cl_temp), dim=1)
+            score_u2 = torch.exp(score_u2 / self.cl_temp)
+            ttl_score_u2 = torch.sum(torch.exp(ttl_score_u2 / self.cl_temp), dim=1)
+
+            score_a = torch.exp(score_a / self.cl_temp)
             ttl_score_a = torch.sum(torch.exp(ttl_score_a / self.cl_temp), dim=1)
 
             # 计算对比学习损失
-            cl_loss = (torch.mean(torch.log(pos_score_u / ttl_score_u)) + torch.mean(
-                torch.log(pos_score_a / ttl_score_a))) / 2
+            cl_loss = (torch.mean(torch.log(score_u1 / ttl_score_u1)) + torch.mean(
+                torch.log(score_u2 / ttl_score_u2)) + torch.mean(
+                torch.log(score_a / ttl_score_a))) / 3
         return cl_loss
 
     def forward(self, users, items):
