@@ -164,7 +164,7 @@ class Loader(BasicDataset):
         # 读取包含uploader和视频配对关系的文件
         with open(uploader_video_file, 'r') as f:
             # 将文件中的每一行转换为一个包含uploader和视频ID的元组，并存入列表
-            self.A_I_pairs = list(map(lambda s: tuple(int(i) for i in s[:-1].split('\t')), f.readlines()))
+            self.A_I_pairs = list(map(lambda s: tuple(int(i) for i in s[:-1].split(' ')), f.readlines()))
         # 将元组列表转换为numpy整数数组
         indice = np.array(self.A_I_pairs, dtype=np.int32)
         # 创建一个与uploader视频对数目相同的全为1的浮点数组
@@ -181,6 +181,23 @@ class Loader(BasicDataset):
         self.i_a_dict = dict(list(map(lambda x: x[::-1], self.A_I_pairs)))
         # 从字典中提取uploader ID的列表
         self._uploaderList = list(self.i_a_dict.values())
+
+        self.uploader_dict = {}
+        with open(uploader_video_file, 'r') as file:
+            for line in file:
+                # 去掉行末的换行符并拆分成uploader_id和video_id
+                uploader_id, video_id = line.strip().split(' ')
+
+                # 将uploader_id和video_id转换为整数类型
+                uploader_id = int(uploader_id)
+                video_id = int(video_id)
+
+                # 如果uploader_id不在字典中，则初始化一个空列表
+                if uploader_id not in self.uploader_dict:
+                    self.uploader_dict[uploader_id] = []
+
+                # 将video_id添加到对应的uploader_id的列表中
+                self.uploader_dict[uploader_id].append(video_id)
 
         # 创建用户和视频的二分图
         self.UserVideoNet = csr_matrix((np.ones(len(self.trainUser)), (self.trainUser, self.trainVideo)),
