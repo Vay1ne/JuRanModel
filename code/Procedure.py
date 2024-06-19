@@ -31,31 +31,31 @@ class Procedure:
         users = torch.Tensor(S[:, 0]).long()
         posVideos = torch.Tensor(S[:, 1]).long()
         negVideos = torch.Tensor(S[:, 2]).long()
+        uploaders = torch.Tensor(S[:, 3]).long()
         # posVloggers = torch.Tensor(S[:, 3]).long()
         # negVloggers = torch.Tensor(S[:, 4]).long()
 
-        users, posVideos, negVideos = utils.shuffle(users, posVideos, negVideos)
+        users, posVideos, negVideos, uploaders = utils.shuffle(users, posVideos, negVideos, uploaders)
         # train_loader = DataLoader(S, world.config['bpr_batch_size'], True, num_workers=8, pin_memory=True, drop_last=True)
         # train_loader2 = DataLoader(S2, world.config['bpr_batch_size'], True, num_workers=8, pin_memory=True, drop_last=True)
 
         total_batch = len(users) // world.config['bpr_batch'] + 1
         aver_loss = 0.
 
-        train_loader = utils.minibatch(users, posVideos, negVideos,
+        train_loader = utils.minibatch(users, posVideos, negVideos, uploaders,
                                        batch_size=world.config['bpr_batch'])
 
         for batch_i, data in enumerate(train_loader):
-            batch_users, batch_posVideo, batch_negVideo = data[0][0], data[0][1], \
-                data[0][2]
+            batch_users, batch_posVideo, batch_negVideo, batch_uploader = data[0], data[1], \
+                data[2], data[3]
             # batch_users2, batch_posVlogger2, batch_negVlogger2 = data[1][0], data[1][1], data[1][2]
 
             batch_users = batch_users.to(world.device)
             batch_posVideo = batch_posVideo.to(world.device)
             batch_negVideo = batch_negVideo.to(world.device)
+            batch_uploader = batch_uploader.to(world.device)
+            loss = self.model.bpr_loss(batch_users, batch_posVideo, batch_negVideo, batch_uploader)
 
-            bpr_loss, reg_loss, cl_loss = self.model.bpr_loss(batch_users, batch_posVideo, batch_negVideo)
-
-            loss = bpr_loss + self.l2_w * reg_loss + self.cl_w * cl_loss
             self.opt.zero_grad()
             loss.backward()
             self.opt.step()

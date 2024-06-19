@@ -25,6 +25,7 @@ class IMP_GCN(nn.Module):
         self.groups = config['groups']
         self.device = device
         self.l2_w = config['l2_w']
+        self.cl_w = config['cl_w']
         self.cl_temp = config['cl_temp']
         self.single = config['single']
         self.__init_weight()
@@ -245,7 +246,7 @@ class IMP_GCN(nn.Module):
             # 计算平均值
             uploader_emb[uploader_id] = sum_emb / len(video_ids)
             uploader_count[uploader_id] = len(video_ids)
-
+        uploader_emb = uploader_emb.to(device)
         return uploader_emb
 
     def get_all_embedding(self):
@@ -258,44 +259,49 @@ class IMP_GCN(nn.Module):
         return [user_0, user_1, user_2, user_3], [uploader_0, uploader_1, uploader_2, uploader_3], [video_0]
 
     def getUsersRating(self, users):
-        all_users, all_items = self.computer()
+        all_users, all_videos = self.computer()
         users_emb = all_users[users.long()]
-        items_emb = all_items
+        items_emb = all_videos
         rating = self.f(torch.matmul(users_emb, items_emb.t()))
         return rating
 
-    def getEmbedding(self, users, pos_items, neg_items):
+    def getEmbedding(self, users, pos_videos, neg_videos, uploaders):
         # 调用computer方法，计算所有用户和项目的嵌入
-        all_users, all_items = self.computer()
+        all_users, all_uploaders, all_videos = self.get_all_embedding()
 
         # 提取指定用户的嵌入
-        users_emb = all_users[users]
+        users_emb = all_users[3][users]
         # 提取指定正样本项目的嵌入
-        pos_emb = all_items[pos_items]
+        pos_emb = all_videos[0][pos_videos]
         # 提取指定负样本项目的嵌入
-        neg_emb = all_items[neg_items]
+        neg_emb = all_videos[0][neg_videos]
+
+        uploaders_emb = all_uploaders[3][uploaders]
 
         # 获取指定用户的初始嵌入（自有嵌入）
         users_emb_ego = self.embedding_user(users)
         # 获取指定正样本项目的初始嵌入（自有嵌入）
-        pos_emb_ego = self.embedding_item(pos_items)
+        pos_emb_ego = self.embedding_video(pos_videos)
         # 获取指定负样本项目的初始嵌入（自有嵌入）
-        neg_emb_ego = self.embedding_item(neg_items)
+        neg_emb_ego = self.embedding_video(neg_videos)
+
+        uploaders_emb_ego = self.embedding_uploader(uploaders)
 
         # 返回提取的嵌入向量
-        return users_emb, pos_emb, neg_emb, users_emb_ego, pos_emb_ego, neg_emb_ego
+        return users_emb, pos_emb, neg_emb, uploaders_emb, users_emb_ego, pos_emb_ego, neg_emb_ego, uploaders_emb_ego
 
-    def bpr_loss(self, users, pos, neg):
+    def bpr_loss(self, users, pos, neg, uploaders):
         # 获取用户、正样本项目和负样本项目的嵌入向量
-        (users_emb, pos_emb, neg_emb,
-         userEmb0, posEmb0, negEmb0) = self.getEmbedding(users.long(), pos.long(), neg.long())
+        (users_emb, pos_emb, neg_emb, uploaders_emb,
+         userEmb0, posEmb0, negEmb0, uploaderEmb0) = self.getEmbedding(users.long(), pos.long(), neg.long(),
+                                                                       uploaders.long())
 
         # 计算正则化损失
         # 正则化损失是用户和项目嵌入的L2范数的平方和
         # 这里的正则化损失是对所有用户的嵌入的平方和取平均
         reg_loss = (1 / 2) * (userEmb0.norm(2).pow(2) +
                               posEmb0.norm(2).pow(2) +
-                              negEmb0.norm(2).pow(2)) / float(len(users))
+                              negEmb0.norm(2).pow(2)) + uploaderEmb0.norm(2).pow(2) / float(users.numel())
 
         # 计算正样本的得分
         # 用户嵌入和正样本项目嵌入进行逐元素相乘，然后对每个用户的相乘结果求和
@@ -311,21 +317,24 @@ class IMP_GCN(nn.Module):
         # 使用softplus函数计算负样本得分和正样本得分的差异，并取平均值
         loss = torch.mean(F.softplus(neg_scores - pos_scores))
 
+        cl_loss = self.calc_crosscl_loss(users_emb, uploaders_emb)
+
         # 返回总损失，包括BPR损失和正则化损失
-        return loss + self.l2_w * reg_loss
+        print("loss:{}\treg_loss:{}\tcl_loss:{}".format(loss, reg_loss, cl_loss))
+        return loss + self.l2_w * reg_loss + self.cl_w * cl_loss
 
     def calc_crosscl_loss(self, users_emb, uploader_emb):
         # 提取用户嵌入
-        user_emb0 = users_emb[0]
-        user_emb1 = users_emb[1]
-        user_emb2 = users_emb[2]
-        user_emb3 = users_emb[3]
-
+        # user_emb0 = users_emb[0]
+        # user_emb1 = users_emb[1]
+        # user_emb2 = users_emb[2]
+        # user_emb3 = users_emb[3]
+        #
         # 提取视频博主嵌入
-        uploader_emb0 = uploader_emb[0]
-        uploader_emb1 = uploader_emb[1]
-        uploader_emb2 = uploader_emb[2]
-        uploader_emb3 = uploader_emb[3]
+        # uploader_emb0 = uploader_emb[0]
+        # uploader_emb1 = uploader_emb[1]
+        # uploader_emb2 = uploader_emb[2]
+        # uploader_emb3 = uploader_emb[3]
 
         # 对用户嵌入进行归一化
         normalize_emb_user0 = F.normalize(user_emb0, dim=1)

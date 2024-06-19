@@ -4,6 +4,7 @@ import world
 
 def UniformSample(dataset):
     users = np.random.randint(0, dataset.n_user, dataset.traindataSize)
+    uploaders = np.random.randint(0, dataset.n_uploader, dataset.traindataSize)
     allPos = dataset.allPos
     S = []
     for user in users:
@@ -13,10 +14,11 @@ def UniformSample(dataset):
 
         positem = posForUser[np.random.randint(0, len(posForUser))]
         negitem = np.random.randint(0, dataset.n_video)
+        uploader = np.random.randint(0, dataset.n_uploader)
         while negitem in posForUser:
             negitem = np.random.randint(0, dataset.n_video)
 
-        S.append([user, positem, negitem])
+        S.append([user, positem, negitem, uploader])
 
     return np.array(S)
 
