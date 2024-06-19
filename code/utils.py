@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-
+import world
 
 def UniformSample(dataset):
     users = np.random.randint(0, dataset.n_user, dataset.traindataSize)
@@ -12,9 +12,9 @@ def UniformSample(dataset):
             continue
 
         positem = posForUser[np.random.randint(0, len(posForUser))]
-        negitem = np.random.randint(0, dataset.m_item)
+        negitem = np.random.randint(0, dataset.n_video)
         while negitem in posForUser:
-            negitem = np.random.randint(0, dataset.m_item)
+            negitem = np.random.randint(0, dataset.n_video)
 
         S.append([user, positem, negitem])
 
@@ -61,7 +61,9 @@ def generate_batches(tensors, batch_size):
         yield tensors[i:i + batch_size]
 
 
-def minibatch(tensors, batch_size):
+def minibatch(*tensors, **kwargs):
+    batch_size = kwargs.get('batch_size', world.config['bpr_batch'])
+
     if len(tensors) == 1:
         tensor = tensors[0]
         for i in range(0, len(tensor), batch_size):

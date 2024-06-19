@@ -4,37 +4,29 @@ import torch.nn.functional as F
 import numpy as np
 from utils import cust_mul
 from dataloader import Loader
+from world import config
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class IMP_GCN(nn.Module):
     def __init__(self,
-                 dataset,
-                 latent_dim=200,
-                 n_layers=6,
-                 keep_prob=0.5,
-                 groups=4,
-                 device=torch.device('cuda'),
-                 dropout_bool=False,
-                 l2_w=1e-4,
-                 cl_temp=0.1,
-                 single=False):
+                 dataset, config):
         super(IMP_GCN, self).__init__()
-        self.latent_dim = latent_dim
-        self.n_layers = n_layers
-        self.dropout_bool = dropout_bool
-        self.keep_prob = keep_prob
+        self.latent_dim = config['latent_dim']
+        self.n_layers = config['n_layers']
+        self.dropout_bool = config['dropout_bool']
+        self.keep_prob = config['keep_prob']
         self.Graph = dataset.getSparseGraph()
         self.num_users = dataset.n_user
         self.num_uploaders = dataset.n_uploaders
         self.num_videos = dataset.n_videos
         self.uploader_dict = dataset.uploader_dict
-        self.groups = groups
+        self.groups = config['groups']
         self.device = device
-        self.l2_w = l2_w
-        self.cl_temp = cl_temp
-        self.single = single
+        self.l2_w = config['l2_w']
+        self.cl_temp = config['cl_temp']
+        self.single = config['single']
         self.__init_weight()
 
     def __init_weight(self):
@@ -424,6 +416,6 @@ class IMP_GCN(nn.Module):
 
 if __name__ == '__main__':
     dataset = Loader()
-    model = IMP_GCN(dataset=dataset, device=device).to(device)
+    model = IMP_GCN(dataset=dataset, config=config).to(device)
     user_ebmdding, uploader_embedding, video_embedding = model.get_all_embedding()
     print(model.calc_crosscl_loss(user_ebmdding, uploader_embedding))
