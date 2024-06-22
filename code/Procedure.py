@@ -32,12 +32,8 @@ class Procedure:
         posVideos = torch.Tensor(S[:, 1]).long()
         negVideos = torch.Tensor(S[:, 2]).long()
         uploaders = torch.Tensor(S[:, 3]).long()
-        # posVloggers = torch.Tensor(S[:, 3]).long()
-        # negVloggers = torch.Tensor(S[:, 4]).long()
 
         users, posVideos, negVideos, uploaders = utils.shuffle(users, posVideos, negVideos, uploaders)
-        # train_loader = DataLoader(S, world.config['bpr_batch_size'], True, num_workers=8, pin_memory=True, drop_last=True)
-        # train_loader2 = DataLoader(S2, world.config['bpr_batch_size'], True, num_workers=8, pin_memory=True, drop_last=True)
 
         total_batch = len(users) // world.config['bpr_batch'] + 1
         aver_loss = 0.
@@ -55,7 +51,8 @@ class Procedure:
             batch_negVideo = batch_negVideo.to(world.device)
             batch_uploader = batch_uploader.to(world.device)
             loss = self.model.bpr_loss(batch_users, batch_posVideo, batch_negVideo, batch_uploader)
-
+            if batch_i % 100 == 0:
+                print("batch:{}\tloss:{}".format(batch_i, loss.item()))
             self.opt.zero_grad()
             loss.backward()
             self.opt.step()
@@ -83,14 +80,12 @@ def test_one_batch(X):
             'ndcg': np.array(ndcg)}
 
 
-def Test(dataset, Recmodel, str, multicore=0):
-    u_batch_size = world.config['test_u_batch_size']
-    dataset: utils.BasicDataset
+def test(dataset, Recmodel, str, multicore=0):
+    u_batch_size = world.config['test_batch']
     if str == 'valid':
         testDict: dict = dataset.validDict
     else:
         testDict: dict = dataset.testDict
-    Recmodel: model.VAGNN
     # eval mode with no dropout
     Recmodel = Recmodel.eval()
     max_K = max(world.topks)
@@ -122,7 +117,7 @@ def Test(dataset, Recmodel, str, multicore=0):
 
             exclude_index = []
             exclude_videos = []
-            for range_i, videos in enumerate(allPos[0]):
+            for range_i, videos in enumerate(allPos):
                 exclude_index.extend([range_i] * len(videos))
                 exclude_videos.extend(videos)
             rating[exclude_index, exclude_videos] = -(1 << 10)
@@ -164,8 +159,28 @@ def Test(dataset, Recmodel, str, multicore=0):
 
 
 if __name__ == '__main__':
+    best_hr, best_ndcg = 0, 0
+    best_epoch = 0
+    count, epoch = 0, 0
+
     dataset = Loader()
     model = IMP_GCN(dataset, world.config)
     model = model.to(device)
     procedure = Procedure(model, world.config)
-    procedure.train(dataset, model)
+    ALL_EPOCH = 100
+    print(world.config)
+    for epoch in range(ALL_EPOCH):
+        output_information = procedure.train(dataset, model)
+        print(f'EPOCH[{epoch + 1}/{ALL_EPOCH}] {output_information}')
+        print("[valid]")
+        res = test(dataset, model, 'valid', world.config['multicore'])
+        hr1, ndcg1 = res['recall'][0], res['ndcg'][0]
+        hr2, ndcg2 = res['recall'][0], res['ndcg'][0]
+        if hr1 > best_hr:
+            best_epoch = epoch
+            count = 0
+            best_hr, best_ndcg = hr1, ndcg1
+        epoch += 1
+    print("[test]")
+    res = test(dataset, model, 'test', world.config['multicore'])
+

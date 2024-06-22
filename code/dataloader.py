@@ -82,8 +82,9 @@ class Loader(BasicDataset):
     gowalla dataset
     """
 
-    def __init__(self, config=world.config, path="../data/takatak"):
+    def __init__(self, config=world.config):
         # train or test
+        path = '../data/' + config['dataset']
         cprint(f'loading [{path}]')
         self.mode_dict = {'train': 0, "test": 1, "valid": 2}
         self.mode = self.mode_dict['train']
@@ -286,20 +287,20 @@ class Loader(BasicDataset):
             user_uploader_graph = self._convert_sp_mat_to_sp_tensor(pre_adj_mat)
             user_uploader_graph = user_uploader_graph.coalesce().to(world.device)
 
-            pre_adj_mat = sp.load_npz(self.path + '/pooling1_s_pre_adj_mat.npz')
-            print("successfully loaded...")
-            pool1_graph = self._convert_sp_mat_to_sp_tensor(pre_adj_mat)
-            pool1_graph = pool1_graph.coalesce().to(world.device)
-
-            pre_adj_mat = sp.load_npz(self.path + '/pooling2_s_pre_adj_mat.npz')
-            print("successfully loaded...")
-            pool2_graph = self._convert_sp_mat_to_sp_tensor(pre_adj_mat)
-            pool2_graph = pool2_graph.coalesce().to(world.device)
-
-            pre_adj_mat = sp.load_npz(self.path + '/pooling3_s_pre_adj_mat.npz')
-            print("successfully loaded...")
-            pool3_graph = self._convert_sp_mat_to_sp_tensor(pre_adj_mat)
-            pool3_graph = pool3_graph.coalesce().to(world.device)
+            # pre_adj_mat = sp.load_npz(self.path + '/pooling1_s_pre_adj_mat.npz')
+            # print("successfully loaded...")
+            # pool1_graph = self._convert_sp_mat_to_sp_tensor(pre_adj_mat)
+            # pool1_graph = pool1_graph.coalesce().to(world.device)
+            #
+            # pre_adj_mat = sp.load_npz(self.path + '/pooling2_s_pre_adj_mat.npz')
+            # print("successfully loaded...")
+            # pool2_graph = self._convert_sp_mat_to_sp_tensor(pre_adj_mat)
+            # pool2_graph = pool2_graph.coalesce().to(world.device)
+            #
+            # pre_adj_mat = sp.load_npz(self.path + '/pooling3_s_pre_adj_mat.npz')
+            # print("successfully loaded...")
+            # pool3_graph = self._convert_sp_mat_to_sp_tensor(pre_adj_mat)
+            # pool3_graph = pool3_graph.coalesce().to(world.device)
 
         except:
             print("generating adjacency matrix")
@@ -468,4 +469,4 @@ class Loader(BasicDataset):
 
 
 if __name__ == '__main__':
-    loader = Loader('../data/takatak')
+    loader = Loader('../data/wechat')

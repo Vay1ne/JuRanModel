@@ -23,7 +23,7 @@ def parse_args():
     parser.add_argument('--pretrain', type=int, default=0, help='whether we use pretrained weight or not')
     parser.add_argument('--seed', type=int, default=2024, help='random seed')
     parser.add_argument('--model', type=str, default='lgn', help='rec-model, support [mf, lgn]')
-    parser.add_argument('--keep_prob', type=float, default=0, help='graph dropout rate')
+    parser.add_argument('--keep_prob', type=float, default=0.3, help='graph dropout rate')
     parser.add_argument('--dropout_bool', type=bool, default=0, help='Whether to use dropout')
     parser.add_argument('--groups', type=int, default=3, help='uploader groups')
     parser.add_argument('--neg', type=int, default=1, help='')
@@ -32,14 +32,12 @@ def parse_args():
     parser.add_argument('--projection_dropout', type=int, default=0.5, help='')
 
     parser.add_argument('--gpu_id', type=str, default='0', help='')
-    parser.add_argument('--dataset', type=str, default='takatak',
+    parser.add_argument('--dataset', type=str, default='wechat',
                         help="available datasets: [wechat, takatak]")
-    # wechat 5 takatak 5
     parser.add_argument('--l2_w', type=float, default=1e-4,
                         help="the weight decay for l2 normalizaton")
-    parser.add_argument('--cl_w', type=float, default=0.05, help='')
-    # wechat 0.5 takatak 0.05
-    parser.add_argument('--cl_temp', type=float, default=0.05, help='')
+    parser.add_argument('--cl_w', type=float, default=0.00005, help='')
+    parser.add_argument('--cl_temp', type=float, default=0.5, help='')
     parser.add_argument('--single', type=bool, default=0, help='是否单层嵌入')
 
     return parser.parse_args()
