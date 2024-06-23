@@ -8,23 +8,28 @@ from itertools import cycle
 from model import IMP_GCN
 from torch import nn, optim
 from dataloader import Loader
+from logger import Log
+from time import strftime, localtime, time
 
 CORES = multiprocessing.cpu_count() // 2
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+current_time = strftime("%Y-%m-%d %H-%M-%S", localtime(time()))
+log = Log('JuRanModel', 'JuRanModel' + ' ' + current_time)
 
 
 class Procedure:
     def __init__(self,
-                 recmodel,
+                 model,
                  config: dict):
-        self.model = recmodel
+        self.model = model
         self.l2_w = config['l2_w']
         self.lr = config['lr']
-        self.opt = optim.Adam(recmodel.parameters(), lr=self.lr)
+        self.opt = optim.Adam(model.parameters(), lr=self.lr)
         self.cl_w = config['cl_w']
+        log.add(config)
 
-    def train(self, dataset, recommend_model):
-        Recmodel = recommend_model
+    def train(self, epoch, dataset, model):
+        Recmodel = model
         Recmodel.train()
 
         S = utils.UniformSample(dataset)
@@ -50,13 +55,24 @@ class Procedure:
             batch_posVideo = batch_posVideo.to(world.device)
             batch_negVideo = batch_negVideo.to(world.device)
             batch_uploader = batch_uploader.to(world.device)
-            loss = self.model.bpr_loss(batch_users, batch_posVideo, batch_negVideo, batch_uploader)
+            bpr_loss, reg_loss, cl_loss = self.model.bpr_loss(batch_users, batch_posVideo, batch_negVideo,
+                                                              batch_uploader)
+            all_loss = bpr_loss + self.model.l2_w * reg_loss + self.model.cl_w * cl_loss
             if batch_i % 100 == 0:
-                print("batch:{}\tloss:{}".format(batch_i, loss.item()))
+                log.add("epoch:{}\tbatch:{}\tbpr_loss:{}\tl2_loss:{}\tcl_loss:{}\tall_loss:{}".format(epoch, batch_i,
+                                                                                                      bpr_loss.item(),
+                                                                                                      reg_loss.item(),
+                                                                                                      cl_loss.item(),
+                                                                                                      all_loss.item()))
+                print("epoch:{}\tbatch:{}\tbpr_loss:{}\tl2_loss:{}\tcl_loss:{}\tall_loss:{}".format(epoch, batch_i,
+                                                                                                    bpr_loss.item(),
+                                                                                                    reg_loss.item(),
+                                                                                                    cl_loss.item(),
+                                                                                                    all_loss.item()))
             self.opt.zero_grad()
-            loss.backward()
+            all_loss.backward()
             self.opt.step()
-            aver_loss += loss.cpu().item()
+            aver_loss += all_loss.cpu().item()
 
         aver_loss = aver_loss / total_batch
         # time_info = timer.dict()
@@ -155,32 +171,33 @@ def test(dataset, Recmodel, str, multicore=0):
         if multicore == 1:
             pool.close()
         print(results)
+        log.add(results)
         return results
 
-
-if __name__ == '__main__':
-    best_hr, best_ndcg = 0, 0
-    best_epoch = 0
-    count, epoch = 0, 0
-
-    dataset = Loader()
-    model = IMP_GCN(dataset, world.config)
-    model = model.to(device)
-    procedure = Procedure(model, world.config)
-    ALL_EPOCH = 100
-    print(world.config)
-    for epoch in range(ALL_EPOCH):
-        output_information = procedure.train(dataset, model)
-        print(f'EPOCH[{epoch + 1}/{ALL_EPOCH}] {output_information}')
-        print("[valid]")
-        res = test(dataset, model, 'valid', world.config['multicore'])
-        hr1, ndcg1 = res['recall'][0], res['ndcg'][0]
-        hr2, ndcg2 = res['recall'][0], res['ndcg'][0]
-        if hr1 > best_hr:
-            best_epoch = epoch
-            count = 0
-            best_hr, best_ndcg = hr1, ndcg1
-        epoch += 1
-    print("[test]")
-    res = test(dataset, model, 'test', world.config['multicore'])
-
+# if __name__ == '__main__':
+#     best_hr, best_ndcg = 0, 0
+#     best_epoch = 0
+#     count, epoch = 0, 0
+#
+#     dataset = Loader()
+#     model = IMP_GCN(dataset, world.config)
+#     model = model.to(device)
+#     procedure = Procedure(model, world.config)
+#     ALL_EPOCH = 100
+#     print(world.config)
+#     for epoch in range(ALL_EPOCH):
+#         output_information = procedure.train(dataset, model)
+#         print(f'EPOCH[{epoch + 1}/{ALL_EPOCH}] {output_information}')
+#         procedure.log.add(f'EPOCH[{epoch + 1}/{ALL_EPOCH}] {output_information}')
+#         print("[valid]")
+#         procedure.log.add("[valid]")
+#         res = test(dataset, model, 'valid', world.config['multicore'])
+#         hr1, ndcg1 = res['recall'][0], res['ndcg'][0]
+#         hr2, ndcg2 = res['recall'][0], res['ndcg'][0]
+#         if hr1 > best_hr:
+#             best_epoch = epoch
+#             count = 0
+#             best_hr, best_ndcg = hr1, ndcg1
+#         epoch += 1
+#     print("[test]")
+#     res = test(dataset, model, 'test', world.config['multicore'])

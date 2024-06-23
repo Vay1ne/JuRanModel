@@ -306,6 +306,7 @@ class IMP_GCN(nn.Module):
         users_emb1 = all_users[1][users]
         users_emb2 = all_users[2][users]
         users_emb3 = all_users[3][users]
+
         pos_emb = all_videos[0][pos_videos]
         neg_emb = all_videos[0][neg_videos]
 
@@ -314,8 +315,15 @@ class IMP_GCN(nn.Module):
         uploaders_emb2 = all_uploaders[2][uploaders]
         uploaders_emb3 = all_uploaders[3][uploaders]
 
-        pos_uploaders_emb = all_uploaders[0][pos_uploaders]
-        neg_uploaders_emb = all_uploaders[0][neg_uploaders]
+        pos_uploaders_emb0 = all_uploaders[0][pos_uploaders]
+        pos_uploaders_emb1 = all_uploaders[1][pos_uploaders]
+        pos_uploaders_emb2 = all_uploaders[2][pos_uploaders]
+        pos_uploaders_emb3 = all_uploaders[3][pos_uploaders]
+
+        neg_uploaders_emb0 = all_uploaders[0][neg_uploaders]
+        neg_uploaders_emb1 = all_uploaders[1][neg_uploaders]
+        neg_uploaders_emb2 = all_uploaders[2][neg_uploaders]
+        neg_uploaders_emb3 = all_uploaders[3][neg_uploaders]
 
         users_emb_ego = self.embedding_user(users)
         pos_emb_ego = self.embedding_video(pos_videos)
@@ -326,7 +334,9 @@ class IMP_GCN(nn.Module):
         # return users_emb, pos_emb, neg_emb, uploaders_emb, users_emb_ego, pos_emb_ego, neg_emb_ego, uploaders_emb_ego
         return [users_emb0, users_emb1, users_emb2, users_emb3], pos_emb, neg_emb, \
             [uploaders_emb0, uploaders_emb1, uploaders_emb2, uploaders_emb3], \
-            users_emb_ego, pos_emb_ego, neg_emb_ego, uploaders_emb_ego, pos_uploaders_emb, neg_uploaders_emb
+            users_emb_ego, pos_emb_ego, neg_emb_ego, uploaders_emb_ego, \
+            [pos_uploaders_emb0, pos_uploaders_emb1, pos_uploaders_emb2, pos_uploaders_emb3], \
+            [neg_uploaders_emb0, neg_uploaders_emb1, neg_uploaders_emb2, neg_uploaders_emb3]
 
     def bpr_loss(self, users, pos, neg, uploaders):
         pos_uploader = self.get_video_uploader(pos)
@@ -342,17 +352,20 @@ class IMP_GCN(nn.Module):
         # 这里的正则化损失是对所有用户的嵌入的平方和取平均
         reg_loss = (1 / 2) * (users_emb_ego.norm(2).pow(2) +
                               pos_emb_ego.norm(2).pow(2) +
-                              neg_emb_ego.norm(2).pow(2)) + uploaders_emb_ego.norm(2).pow(2) / float(users.numel())
+                              neg_emb_ego.norm(2).pow(2) + uploaders_emb_ego.norm(2).pow(2)) / float(users.numel())
 
         finall_users_emb = (users_emb[0] + users_emb[1] + users_emb[2] + users_emb[3]) / 4
+        finall_pos_uploaders_emb = (pos_uploader_emb[0] + pos_uploader_emb[1] + pos_uploader_emb[2] + pos_uploader_emb[3]) / 4
+        finall_neg_uploaders_emb = (neg_uploader_emb[0] + neg_uploader_emb[1] + neg_uploader_emb[2] + neg_uploader_emb[3]) / 4
+
         # 计算正样本的得分
         # 用户嵌入和正样本项目嵌入进行逐元素相乘，然后对每个用户的相乘结果求和
-        pos_scores = torch.mul(finall_users_emb, (pos_emb + pos_uploader_emb) / 2)
+        pos_scores = torch.mul(finall_users_emb, (pos_emb + finall_pos_uploaders_emb) / 2)
         pos_scores = torch.sum(pos_scores, dim=1)
 
         # 计算负样本的得分
         # 用户嵌入和负样本项目嵌入进行逐元素相乘，然后对每个用户的相乘结果求和
-        neg_scores = torch.mul(finall_users_emb, (neg_emb + neg_uploader_emb) / 2)
+        neg_scores = torch.mul(finall_users_emb, (neg_emb + finall_neg_uploaders_emb) / 2)
         neg_scores = torch.sum(neg_scores, dim=1)
 
         # 计算BPR损失
@@ -362,9 +375,10 @@ class IMP_GCN(nn.Module):
         cl_loss = self.calc_crosscl_loss(users_emb, uploaders_emb)
 
         # 返回总损失，包括BPR损失和正则化损失
-        all_loss = loss + self.l2_w * reg_loss + self.cl_w * cl_loss
-        print("loss:{}\treg_loss:{}\tcl_loss:{}\tall_loss:{}".format(loss, reg_loss, cl_loss, all_loss))
-        return all_loss
+        # all_loss = loss + self.l2_w * reg_loss + self.cl_w * cl_loss
+        return loss, reg_loss, cl_loss
+        # print("loss:{}\treg_loss:{}\tcl_loss:{}\tall_loss:{}".format(loss, reg_loss, cl_loss, all_loss))
+        # return all_loss
 
     def get_video_uploader(self, videos):
         uploader_ids = []

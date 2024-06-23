@@ -1,0 +1,9 @@
+2024-06-22 22:34:11,245 - JuRanModel - INFO - {'latent_dim': 64, 'bpr_batch': 4096, 'n_layers': 2, 'lr': 0.001, 'test_batch': 128, 'path': './checkpoints', 'topks': '[10,20,50]', 'load': 1, 'epochs': 200, 'multicore': 1, 'pretrain': 0, 'seed': 2024, 'model': 'lgn', 'keep_prob': 0.3, 'dropout_bool': 0, 'groups': 3, 'neg': 1, 'projection_dim': 16, 'projection_dropout': 0.5, 'gpu_id': '0', 'dataset': 'wechat', 'l2_w': 0.0001, 'cl_w': 0.0005, 'cl_temp': 0.5, 'single': 0}
+2024-06-22 22:34:21,692 - JuRanModel - INFO - batch:0	bpr_loss:0.6931391954421997	l2_loss:0.03784295916557312	cl_loss:8.393243789672852	all_loss:0.6973395943641663
+2024-06-22 22:34:23,164 - JuRanModel - INFO - batch:1	bpr_loss:0.6931329369544983	l2_loss:0.03783004730939865	cl_loss:8.38369083404541	all_loss:0.6973285675048828
+2024-06-22 22:34:24,541 - JuRanModel - INFO - batch:2	bpr_loss:0.6931319832801819	l2_loss:0.037936981767416	cl_loss:8.383438110351562	all_loss:0.6973274946212769
+2024-06-22 22:34:25,877 - JuRanModel - INFO - batch:3	bpr_loss:0.6931228637695312	l2_loss:0.038084983825683594	cl_loss:8.38390827178955	all_loss:0.6973186135292053
+2024-06-22 22:34:27,116 - JuRanModel - INFO - batch:4	bpr_loss:0.6931174397468567	l2_loss:0.038278959691524506	cl_loss:8.380481719970703	all_loss:0.697311520576477
+2024-06-22 22:34:28,363 - JuRanModel - INFO - batch:5	bpr_loss:0.6931157112121582	l2_loss:0.038390882313251495	cl_loss:8.378463745117188	all_loss:0.6973087787628174
+2024-06-22 22:34:29,599 - JuRanModel - INFO - batch:6	bpr_loss:0.6931121349334717	l2_loss:0.03851897269487381	cl_loss:8.370345115661621	all_loss:0.6973012089729309
+2024-06-22 22:34:30,858 - JuRanModel - INFO - batch:7	bpr_loss:0.6931129097938538	l2_loss:0.03876076638698578	cl_loss:8.376728057861328	all_loss:0.6973051428794861

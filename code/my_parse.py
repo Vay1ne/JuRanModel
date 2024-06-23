@@ -36,8 +36,9 @@ def parse_args():
                         help="available datasets: [wechat, takatak]")
     parser.add_argument('--l2_w', type=float, default=1e-4,
                         help="the weight decay for l2 normalizaton")
-    parser.add_argument('--cl_w', type=float, default=0.00005, help='')
+    parser.add_argument('--cl_w', type=float, default=0.0005, help='')
     parser.add_argument('--cl_temp', type=float, default=0.5, help='')
     parser.add_argument('--single', type=bool, default=0, help='是否单层嵌入')
+
 
     return parser.parse_args()
