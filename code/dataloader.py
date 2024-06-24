@@ -305,27 +305,32 @@ class Loader(BasicDataset):
         except:
             print("generating adjacency matrix")
 
-            user_video_adj, user_uploader_adj = self.generate_user_video_uploader_user_adj(self.UserVideoNet,
-                                                                                           self.UseruploaderNet,
-                                                                                           self.ground_truth_a_i, p=0.4,
-                                                                                           q=0.1
-                                                                                           )
+            # user_video_adj, user_uploader_adj = self.generate_user_video_uploader_user_adj(self.UserVideoNet,
+            #                                                                                self.UseruploaderNet,
+            #                                                                                self.ground_truth_a_i, p=0.4,
+            #                                                                                q=0.1
+            #                                                                                )
+            user_video_adj, user_uploader_adj = self.UserVideoNet, self.UseruploaderNet
             # u-i graph
             adj_mat = sp.dok_matrix((self.n_user + self.n_video, self.n_user + self.n_video), dtype=np.float32)
             adj_mat = adj_mat.tolil()
             R = user_video_adj.tolil()
+
             adj_mat[:self.n_user, self.n_user:] = R
             adj_mat[self.n_user:, :self.n_user] = R.T
             adj_mat = adj_mat.todok()
             # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
 
             rowsum = np.array(adj_mat.sum(axis=1))
+
             d_inv = np.power(rowsum, -0.5).flatten()
             d_inv[np.isinf(d_inv)] = 0.
             d_mat = sp.diags(d_inv)
+
             norm_adj = d_mat.dot(adj_mat)
             norm_adj = norm_adj.dot(d_mat)
             norm_adj = norm_adj.tocsr()
+
             sp.save_npz(self.path + '/user_video_s_pre_adj_mat.npz', norm_adj)
             user_video_graph = self._convert_sp_mat_to_sp_tensor(norm_adj)
             user_video_graph = user_video_graph.coalesce().to(world.device)
@@ -469,4 +474,5 @@ class Loader(BasicDataset):
 
 
 if __name__ == '__main__':
-    loader = Loader('../data/wechat')
+    loader = Loader(world.config)
+    loader.getSparseGraph()

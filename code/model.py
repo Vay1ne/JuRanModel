@@ -64,9 +64,10 @@ class IMP_GCN(nn.Module):
         self.uploaderProjection = ProjectionHead(config)
 
     def __init_weight(self):
-        self.embedding_user = torch.nn.Embedding(self.num_users, self.latent_dim)
-        self.embedding_uploader = torch.nn.Embedding(self.num_uploaders, self.latent_dim)
-        self.embedding_video = torch.nn.Embedding(self.num_videos, self.latent_dim)
+        self.embedding_user_ua = torch.nn.Embedding(num_embeddings=self.num_users, embedding_dim=self.latent_dim)
+        self.embedding_user_uv = torch.nn.Embedding(num_embeddings=self.num_users, embedding_dim=self.latent_dim)
+        self.embedding_uploader = torch.nn.Embedding(num_embeddings=self.num_uploaders, embedding_dim=self.latent_dim)
+        self.embedding_video = torch.nn.Embedding(num_embeddings=self.num_videos, embedding_dim=self.latent_dim)
 
         self.fc = torch.nn.Linear(self.latent_dim, self.latent_dim)
         self.leaky = torch.nn.LeakyReLU()
@@ -76,11 +77,17 @@ class IMP_GCN(nn.Module):
 
         # nn.init.normal_(self.embedding_user.weight, std=0.1)
         # nn.init.normal_(self.embedding_uploader.weight, std=0.1)
-        nn.init.xavier_uniform_(self.embedding_user.weight, gain=1)
-        nn.init.xavier_uniform_(self.embedding_uploader.weight, gain=1)
-        nn.init.xavier_uniform_(self.embedding_video.weight, gain=1)
+        # nn.init.xavier_uniform_(self.embedding_user.weight, gain=1)
+        # nn.init.xavier_uniform_(self.embedding_uploader.weight, gain=1)
+        # nn.init.xavier_uniform_(self.embedding_video.weight, gain=1)
+
+        nn.init.normal_(self.embedding_user_ua.weight, std=0.1)
+        nn.init.normal_(self.embedding_user_uv.weight, std=0.1)
+        nn.init.normal_(self.embedding_uploader.weight, std=0.1)
+        nn.init.normal_(self.embedding_video.weight, std=0.1)
         # nn.init.xavier_uniform_(self.fc.weight, gain=1)
         # nn.init.xavier_uniform_(self.fc_g.weight, gain=1)
+        print('1')
 
     def __dropout_x(self, x, keep_prob):
         # 获取输入张量的大小
@@ -122,7 +129,7 @@ class IMP_GCN(nn.Module):
 
     def computer_ua(self, dropout_bool):
         # 获取用户和项目的嵌入权重
-        users_emb = self.embedding_user.weight
+        users_emb = self.embedding_user_ua.weight
         uploaders_emb = self.embedding_uploader.weight
         # 将用户和项目的嵌入拼接在一起
         all_emb = torch.cat([users_emb, uploaders_emb])
@@ -136,7 +143,7 @@ class IMP_GCN(nn.Module):
 
         # 计算自有嵌入和邻居嵌入
         ego_embed = all_emb
-        side_embed = torch.sparse.mm(g_droped[1], all_emb)
+        side_embed = torch.sparse.mm(g_droped[1], all_emb)  # 一阶特征
 
         # 通过全连接层和激活函数计算临时嵌入
         temp = self.dropout(self.leaky(self.fc(ego_embed + side_embed)))
@@ -194,7 +201,7 @@ class IMP_GCN(nn.Module):
 
     def computer_uv(self, dropout_bool):
         # 获取用户和项目的嵌入权重
-        users_emb = self.embedding_user.weight
+        users_emb = self.embedding_user_uv.weight
         videos_emb = self.embedding_video.weight
         # 将用户和项目的嵌入拼接在一起
         all_emb = torch.cat([users_emb, videos_emb])
@@ -282,7 +289,7 @@ class IMP_GCN(nn.Module):
         uploader_emb = uploader_emb.to(device)
         return uploader_emb
 
-    def get_all_embedding(self):
+    def compute(self):
         user_0, uploader_0 = self.computer_ua(self.dropout_bool)
         user_1, uploader_1 = self.computer_ua(1)
         user_2, uploader_2 = self.computer_ua(1)
@@ -292,7 +299,7 @@ class IMP_GCN(nn.Module):
         return [user_0, user_1, user_2, user_3], [uploader_0, uploader_1, uploader_2, uploader_3], [video_0]
 
     def getUsersRating(self, users):
-        all_users, all_uploaders, all_videos = self.get_all_embedding()
+        all_users, all_uploaders, all_videos = self.compute()
         users_emb = all_users[3][users.long()]
         items_emb = all_videos[0]
         rating = self.f(torch.matmul(users_emb, items_emb.t()))
@@ -300,7 +307,7 @@ class IMP_GCN(nn.Module):
 
     def getEmbedding(self, users, pos_videos, neg_videos, uploaders, pos_uploaders, neg_uploaders):
         # 调用computer方法，计算所有用户和项目的嵌入
-        all_users, all_uploaders, all_videos = self.get_all_embedding()
+        all_users, all_uploaders, all_videos = self.compute()
 
         users_emb0 = all_users[0][users]
         users_emb1 = all_users[1][users]
@@ -325,7 +332,8 @@ class IMP_GCN(nn.Module):
         neg_uploaders_emb2 = all_uploaders[2][neg_uploaders]
         neg_uploaders_emb3 = all_uploaders[3][neg_uploaders]
 
-        users_emb_ego = self.embedding_user(users)
+        users_ua_emb_ego = self.embedding_user_ua(users)
+        users_uv_emb_ego = self.embedding_user_uv(users)
         pos_emb_ego = self.embedding_video(pos_videos)
         neg_emb_ego = self.embedding_video(neg_videos)
         uploaders_emb_ego = self.embedding_uploader(uploaders)
@@ -334,14 +342,14 @@ class IMP_GCN(nn.Module):
         # return users_emb, pos_emb, neg_emb, uploaders_emb, users_emb_ego, pos_emb_ego, neg_emb_ego, uploaders_emb_ego
         return [users_emb0, users_emb1, users_emb2, users_emb3], pos_emb, neg_emb, \
             [uploaders_emb0, uploaders_emb1, uploaders_emb2, uploaders_emb3], \
-            users_emb_ego, pos_emb_ego, neg_emb_ego, uploaders_emb_ego, \
+            users_ua_emb_ego, users_uv_emb_ego, pos_emb_ego, neg_emb_ego, uploaders_emb_ego, \
             [pos_uploaders_emb0, pos_uploaders_emb1, pos_uploaders_emb2, pos_uploaders_emb3], \
             [neg_uploaders_emb0, neg_uploaders_emb1, neg_uploaders_emb2, neg_uploaders_emb3]
 
     def bpr_loss(self, users, pos, neg, uploaders):
         pos_uploader = self.get_video_uploader(pos)
         neg_uploader = self.get_video_uploader(neg)
-        (users_emb, pos_emb, neg_emb, uploaders_emb, users_emb_ego, pos_emb_ego, neg_emb_ego,
+        (users_emb, pos_emb, neg_emb, uploaders_emb, users_ua_emb_ego, users_uv_emb_ego, pos_emb_ego, neg_emb_ego,
          uploaders_emb_ego, pos_uploader_emb, neg_uploader_emb) = self.getEmbedding(users.long(), pos.long(),
                                                                                     neg.long(), uploaders.long(),
                                                                                     pos_uploader.long(),
@@ -350,13 +358,16 @@ class IMP_GCN(nn.Module):
         # 计算正则化损失
         # 正则化损失是用户和项目嵌入的L2范数的平方和
         # 这里的正则化损失是对所有用户的嵌入的平方和取平均
-        reg_loss = (1 / 2) * (users_emb_ego.norm(2).pow(2) +
+        reg_loss = (1 / 2) * (users_ua_emb_ego.norm(2).pow(2) +
+                              users_uv_emb_ego.norm(2).pow(2) +
                               pos_emb_ego.norm(2).pow(2) +
                               neg_emb_ego.norm(2).pow(2) + uploaders_emb_ego.norm(2).pow(2)) / float(users.numel())
 
         finall_users_emb = (users_emb[0] + users_emb[1] + users_emb[2] + users_emb[3]) / 4
-        finall_pos_uploaders_emb = (pos_uploader_emb[0] + pos_uploader_emb[1] + pos_uploader_emb[2] + pos_uploader_emb[3]) / 4
-        finall_neg_uploaders_emb = (neg_uploader_emb[0] + neg_uploader_emb[1] + neg_uploader_emb[2] + neg_uploader_emb[3]) / 4
+        finall_pos_uploaders_emb = (pos_uploader_emb[0] + pos_uploader_emb[1] + pos_uploader_emb[2] + pos_uploader_emb[
+            3]) / 4
+        finall_neg_uploaders_emb = (neg_uploader_emb[0] + neg_uploader_emb[1] + neg_uploader_emb[2] + neg_uploader_emb[
+            3]) / 4
 
         # 计算正样本的得分
         # 用户嵌入和正样本项目嵌入进行逐元素相乘，然后对每个用户的相乘结果求和
@@ -506,5 +517,5 @@ class IMP_GCN(nn.Module):
 if __name__ == '__main__':
     dataset = Loader()
     model = IMP_GCN(dataset=dataset, config=config).to(device)
-    user_ebmdding, uploader_embedding, video_embedding = model.get_all_embedding()
+    user_ebmdding, uploader_embedding, video_embedding = model.compute()
     print(model.calc_crosscl_loss(user_ebmdding, uploader_embedding))

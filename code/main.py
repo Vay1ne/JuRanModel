@@ -6,7 +6,7 @@ from Procedure import Procedure, test, log
 import world
 import dataloader
 from model import IMP_GCN
-from logger import Log
+# from logger import Log
 
 if __name__ == '__main__':
     utils.set_seed(world.seed)
@@ -39,7 +39,6 @@ if __name__ == '__main__':
         hr1, ndcg1 = res['recall'][0], res['ndcg'][0]
         hr2, ndcg2 = res['recall'][0], res['ndcg'][0]
         print(f'EPOCH[{epoch + 1}/{world.TRAIN_epochs}] {output_information}')
-        log.add(f'EPOCH[{epoch + 1}/{world.TRAIN_epochs}] {output_information}')
         if hr1 > best_hr:
             best_epoch = epoch
             count = 0
