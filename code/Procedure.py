@@ -174,30 +174,29 @@ def test(dataset, Recmodel, str, multicore=0):
         log.add(results)
         return results
 
-# if __name__ == '__main__':
-#     best_hr, best_ndcg = 0, 0
-#     best_epoch = 0
-#     count, epoch = 0, 0
-#
-#     dataset = Loader()
-#     model = IMP_GCN(dataset, world.config)
-#     model = model.to(device)
-#     procedure = Procedure(model, world.config)
-#     ALL_EPOCH = 100
-#     print(world.config)
-#     for epoch in range(ALL_EPOCH):
-#         output_information = procedure.train(dataset, model)
-#         print(f'EPOCH[{epoch + 1}/{ALL_EPOCH}] {output_information}')
-#         procedure.log.add(f'EPOCH[{epoch + 1}/{ALL_EPOCH}] {output_information}')
-#         print("[valid]")
-#         procedure.log.add("[valid]")
-#         res = test(dataset, model, 'valid', world.config['multicore'])
-#         hr1, ndcg1 = res['recall'][0], res['ndcg'][0]
-#         hr2, ndcg2 = res['recall'][0], res['ndcg'][0]
-#         if hr1 > best_hr:
-#             best_epoch = epoch
-#             count = 0
-#             best_hr, best_ndcg = hr1, ndcg1
-#         epoch += 1
-#     print("[test]")
-#     res = test(dataset, model, 'test', world.config['multicore'])
+if __name__ == '__main__':
+    best_hr, best_ndcg = 0, 0
+    best_epoch = 0
+    count, epoch = 0, 0
+
+    dataset = Loader()
+    model = IMP_GCN(dataset, world.config)
+    model = model.to(device)
+    procedure = Procedure(model, world.config)
+    ALL_EPOCH = 100
+    print(world.config)
+    # output_information = procedure.train(dataset, model)
+    # print(f'EPOCH[{epoch + 1}/{ALL_EPOCH}] {output_information}')
+    # procedure.log.add(f'EPOCH[{epoch + 1}/{ALL_EPOCH}] {output_information}')
+    print("[valid]")
+    # procedure.log.add("[valid]")
+    res = test(dataset, model, 'valid', world.config['multicore'])
+    hr1, ndcg1 = res['recall'][0], res['ndcg'][0]
+    hr2, ndcg2 = res['recall'][0], res['ndcg'][0]
+    # if hr1 > best_hr:
+    #     best_epoch = epoch
+    #     count = 0
+    #     best_hr, best_ndcg = hr1, ndcg1
+    # epoch += 1
+# print("[test]")
+# res = test(dataset, model, 'test', world.config['multicore'])

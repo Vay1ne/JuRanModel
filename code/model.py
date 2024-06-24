@@ -300,8 +300,14 @@ class IMP_GCN(nn.Module):
 
     def getUsersRating(self, users):
         all_users, all_uploaders, all_videos = self.compute()
-        users_emb = all_users[3][users.long()]
+        users_emb = (all_users[0][users] + all_users[1][users] + all_users[2][users] + all_users[3][users]) / 4
         items_emb = all_videos[0]
+        uploaders_emb = (all_uploaders[0] + all_uploaders[1] + all_uploaders[2] + all_uploaders[3]) / 4
+        videos_uploader_emb = torch.zeros_like(items_emb)
+        for uploader_id, video_ids in self.uploader_video_dict.items():
+            for video_id in video_ids:
+                videos_uploader_emb[video_id] = uploaders_emb[uploader_id]
+        items_emb = (videos_uploader_emb + items_emb) / 2
         rating = self.f(torch.matmul(users_emb, items_emb.t()))
         return rating
 
