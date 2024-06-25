@@ -2,7 +2,7 @@ import utils
 from world import cprint
 import torch
 import time
-from Procedure import Procedure, test, log
+from Procedure import Procedure
 import world
 import dataloader
 from model import IMP_GCN
@@ -35,10 +35,10 @@ if __name__ == '__main__':
         start = time.time()
         output_information = procedure.train(epoch, dataset, model)
         cprint("[valid]")
-        res = test(dataset, model, 'valid', world.config['multicore'])
+        res = procedure.test(epoch, dataset, model, 'valid', world.config['multicore'])
         hr1, ndcg1 = res['recall'][0], res['ndcg'][0]
         hr2, ndcg2 = res['recall'][0], res['ndcg'][0]
-        print(f'EPOCH[{epoch + 1}/{world.TRAIN_epochs}] {output_information}')
+        # print(f'EPOCH[{epoch + 1}/{world.TRAIN_epochs}] {output_information}')
         if hr1 > best_hr:
             best_epoch = epoch
             count = 0
@@ -47,7 +47,5 @@ if __name__ == '__main__':
             # 小于10次退出训练
             count += 1
         epoch += 1
-    log.add("End. Best epoch {:03d}: HR = {:.4f}, NDCG = {:.4f} in invalid data".format(
-        best_epoch, best_hr, best_ndcg))
     print("End. Best epoch {:03d}: HR = {:.4f}, NDCG = {:.4f} in invalid data".format(
-        best_epoch, best_hr, best_ndcg))
+        best_epoch + 1, best_hr, best_ndcg))

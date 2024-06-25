@@ -78,101 +78,102 @@ class Procedure:
         # time_info = timer.dict()
         # timer.zero()
         # return f"loss{aver_loss:.3f}-{time_info}"
+        print(f'EPOCH[{epoch + 1}/{world.TRAIN_epochs}] {f"loss{aver_loss:.3f}"}')
+        log.add(f'EPOCH[{epoch + 1}/{world.TRAIN_epochs}] {f"loss{aver_loss:.3f}"}')
         return f"loss{aver_loss:.3f}"
 
+    def test_one_batch(self, x):
+        sorted_videos = x[0].numpy()
+        groundTrue = x[1]
+        r = utils.getLabel(groundTrue, sorted_videos)
+        pre, recall, ndcg = [], [], []
+        for k in world.topks:
+            ret = utils.RecallPrecision_ATk(groundTrue, r, k)
+            pre.append(ret['precision'])
+            recall.append(ret['recall'])
+            ndcg.append(utils.NDCGatK_r(groundTrue, r, k))
+        return {'recall': np.array(recall),
+                'precision': np.array(pre),
+                'ndcg': np.array(ndcg)}
 
-def test_one_batch(X):
-    sorted_videos = X[0].numpy()
-    groundTrue = X[1]
-    r = utils.getLabel(groundTrue, sorted_videos)
-    pre, recall, ndcg = [], [], []
-    for k in world.topks:
-        ret = utils.RecallPrecision_ATk(groundTrue, r, k)
-        pre.append(ret['precision'])
-        recall.append(ret['recall'])
-        ndcg.append(utils.NDCGatK_r(groundTrue, r, k))
-    return {'recall': np.array(recall),
-            'precision': np.array(pre),
-            'ndcg': np.array(ndcg)}
-
-
-def test(dataset, Recmodel, str, multicore=0):
-    u_batch_size = world.config['test_batch']
-    if str == 'valid':
-        testDict: dict = dataset.validDict
-    else:
-        testDict: dict = dataset.testDict
-    # eval mode with no dropout
-    Recmodel = Recmodel.eval()
-    max_K = max(world.topks)
-    if multicore == 1:
-        pool = multiprocessing.Pool(CORES)
-    results = {'precision': np.zeros(len(world.topks)),
-               'recall': np.zeros(len(world.topks)),
-               'ndcg': np.zeros(len(world.topks))}
-    with torch.no_grad():
-        users = list(testDict.keys())
-        try:
-            assert u_batch_size <= len(users) / 10
-        except AssertionError:
-            print(f"test_u_batch_size is too big for this dataset, try a small one {len(users) // 10}")
-        users_list = []
-        rating_list = []
-        groundTrue_list = []
-        # auc_record = []
-        # ratings = []
-        total_batch = len(users) // u_batch_size + 1
-        for batch_users in utils.minibatch(users, batch_size=u_batch_size):
-            allPos = dataset.getUserPosVideos(batch_users)
-            groundTrue = [testDict[u] for u in batch_users]
-            batch_users_gpu = torch.Tensor(batch_users).long()
-            batch_users_gpu = batch_users_gpu.to(world.device)
-
-            rating = Recmodel.getUsersRating(batch_users_gpu)
-            # rating = rating.cpu()
-
-            exclude_index = []
-            exclude_videos = []
-            for range_i, videos in enumerate(allPos):
-                exclude_index.extend([range_i] * len(videos))
-                exclude_videos.extend(videos)
-            rating[exclude_index, exclude_videos] = -(1 << 10)
-
-            _, rating_K = torch.topk(rating, k=max_K)
-            rating = rating.cpu().numpy()
-            # aucs = [
-            #         utils.AUC(rating[i],
-            #                   dataset,
-            #                   test_data) for i, test_data in enumerate(groundTrue)
-            #     ]
-            # auc_record.extend(aucs)
-            del rating
-            users_list.append(batch_users)
-            rating_list.append(rating_K.cpu())
-            groundTrue_list.append(groundTrue)
-        assert total_batch == len(users_list)
-        X = zip(rating_list, groundTrue_list)
-        if multicore == 1:
-            pre_results = pool.map(test_one_batch, X)
+    def test(self, epoch, dataset, Recmodel, str, multicore=0):
+        u_batch_size = world.config['test_batch']
+        if str == 'valid':
+            testDict: dict = dataset.validDict
         else:
-            pre_results = []
-            for x in X:
-                pre_results.append(test_one_batch(x))
-        scale = float(u_batch_size / len(users))
-        for result in pre_results:
-            results['recall'] += result['recall']
-            results['precision'] += result['precision']
-            results['ndcg'] += result['ndcg']
-        results['recall'] /= float(len(users))
-        results['precision'] /= float(len(users))
-        results['ndcg'] /= float(len(users))
-        # results['auc'] = np.mean(auc_record)
-
+            testDict: dict = dataset.testDict
+        # eval mode with no dropout
+        Recmodel = Recmodel.eval()
+        max_K = max(world.topks)
         if multicore == 1:
-            pool.close()
-        print(results)
-        log.add(results)
-        return results
+            pool = multiprocessing.Pool(CORES)
+        results = {'precision': np.zeros(len(world.topks)),
+                   'recall': np.zeros(len(world.topks)),
+                   'ndcg': np.zeros(len(world.topks))}
+        with torch.no_grad():
+            users = list(testDict.keys())
+            try:
+                assert u_batch_size <= len(users) / 10
+            except AssertionError:
+                print(f"test_u_batch_size is too big for this dataset, try a small one {len(users) // 10}")
+            users_list = []
+            rating_list = []
+            groundTrue_list = []
+            # auc_record = []
+            # ratings = []
+            total_batch = len(users) // u_batch_size + 1
+            for batch_users in utils.minibatch(users, batch_size=u_batch_size):
+                allPos = dataset.getUserPosVideos(batch_users)
+                groundTrue = [testDict[u] for u in batch_users]
+                batch_users_gpu = torch.Tensor(batch_users).long()
+                batch_users_gpu = batch_users_gpu.to(world.device)
+
+                rating = Recmodel.getUsersRating(batch_users_gpu)
+                # rating = rating.cpu()
+
+                exclude_index = []
+                exclude_videos = []
+                for range_i, videos in enumerate(allPos):
+                    exclude_index.extend([range_i] * len(videos))
+                    exclude_videos.extend(videos)
+                rating[exclude_index, exclude_videos] = -(1 << 10)
+
+                _, rating_K = torch.topk(rating, k=max_K)
+                rating = rating.cpu().numpy()
+                # aucs = [
+                #         utils.AUC(rating[i],
+                #                   dataset,
+                #                   test_data) for i, test_data in enumerate(groundTrue)
+                #     ]
+                # auc_record.extend(aucs)
+                del rating
+                users_list.append(batch_users)
+                rating_list.append(rating_K.cpu())
+                groundTrue_list.append(groundTrue)
+            assert total_batch == len(users_list)
+            X = zip(rating_list, groundTrue_list)
+            if multicore == 1:
+                pre_results = pool.map(self.test_one_batch, X)
+            else:
+                pre_results = []
+                for x in X:
+                    pre_results.append(self.test_one_batch(x))
+            scale = float(u_batch_size / len(users))
+            for result in pre_results:
+                results['recall'] += result['recall']
+                results['precision'] += result['precision']
+                results['ndcg'] += result['ndcg']
+            results['recall'] /= float(len(users))
+            results['precision'] /= float(len(users))
+            results['ndcg'] /= float(len(users))
+            # results['auc'] = np.mean(auc_record)
+
+            if multicore == 1:
+                pool.close()
+            print(results)
+            log.add(results)
+            return results
+
 
 if __name__ == '__main__':
     best_hr, best_ndcg = 0, 0
