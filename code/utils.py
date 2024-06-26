@@ -134,6 +134,6 @@ def RecallPrecision_ATk(test_data, r, k):
 
 
 def getFileName():
-    file = f"lgn-{world.dataset}-{world.config['VAGNN_n_layers']}-{world.config['vlogger_reg']}-{world.config['cl_reg']}-{world.config['cl_temp']}-{world.config['latent_dim_rec']}" + datetime.fromtimestamp(
+    file = f"lgn-{world.dataset}-{world.config['n_layers']}--{world.config['cl_w']}-{world.config['cl_temp']}-{world.config['latent_dim']}" + datetime.fromtimestamp(
         time()).strftime('%m%d%H%M')
     return os.path.join(world.FILE_PATH, file)
