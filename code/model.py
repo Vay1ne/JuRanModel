@@ -2,9 +2,11 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import numpy as np
+from logger import Log
 from utils import cust_mul
 from dataloader import Loader
 from world import config
+from time import strftime, localtime, time
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -56,6 +58,9 @@ class IMP_GCN(nn.Module):
         self.cl_w = config['cl_w']
         self.cl_temp = config['cl_temp']
         self.single = config['single']
+        current_time = strftime("%Y-%m-%d %H-%M-%S", localtime(time()))
+        self.log = Log('JuRanModel', 'JuRanModel' + ' ' + current_time)
+
         self.__init_weight()
 
         self.projection = ProjectionHead(config)
@@ -157,9 +162,19 @@ class IMP_GCN(nn.Module):
         # 分别获取用户和项目的one-hot嵌入表示
         u_one_hot, i_one_hot = torch.split(one_hot_emb, [self.num_users, self.num_uploaders])
         # 将项目的one-hot嵌入表示设置为全1
-        i_one_hot = torch.ones(i_one_hot.shape).to(self.device)
+        u_one_hot = torch.ones(u_one_hot.shape).to(self.device)
         # 将用户和项目的one-hot嵌入表示拼接在一起并转置
         one_hot_emb = torch.cat([u_one_hot, i_one_hot]).t()
+
+        # # 获取得分最高的组索引，针对上传者进行分组
+        # uploaders_top, uploaders_top_idx = torch.topk(group_scores[self.num_users:], k=1, sorted=False)
+        # uploaders_one_hot_emb = torch.eq(group_scores[self.num_users:], uploaders_top).float()
+        #
+        # # 分别获取用户和项目的one-hot嵌入表示
+        # u_one_hot = torch.ones((self.num_users, 1)).to(self.device)  # 用户的one-hot嵌入表示设置为全1
+        # i_one_hot = uploaders_one_hot_emb
+        # # 将用户和项目的one-hot嵌入表示拼接在一起并转置
+        # one_hot_emb = torch.cat([u_one_hot, i_one_hot]).t()
 
         # 创建子图列表
         subgraph_list = []
@@ -300,9 +315,9 @@ class IMP_GCN(nn.Module):
 
     def getUsersRating(self, users):
         all_users, all_uploaders, all_videos = self.compute()
-        users_emb = (all_users[0][users] + all_users[1][users] + all_users[2][users] + all_users[3][users]) / 4
+        users_emb = (all_users[0][users] + all_users[3][users]) / 2
         items_emb = all_videos[0]
-        uploaders_emb = (all_uploaders[0] + all_uploaders[1] + all_uploaders[2] + all_uploaders[3]) / 4
+        uploaders_emb = (all_uploaders[0] + all_uploaders[3]) / 2
         videos_uploader_emb = torch.zeros_like(items_emb)
         for uploader_id, video_ids in self.uploader_video_dict.items():
             for video_id in video_ids:
@@ -370,10 +385,10 @@ class IMP_GCN(nn.Module):
                               neg_emb_ego.norm(2).pow(2) + uploaders_emb_ego.norm(2).pow(2)) / float(users.numel())
 
         finall_users_emb = (users_emb[0] + users_emb[1] + users_emb[2] + users_emb[3]) / 4
-        finall_pos_uploaders_emb = (pos_uploader_emb[0] + pos_uploader_emb[1] + pos_uploader_emb[2] + pos_uploader_emb[
-            3]) / 4
-        finall_neg_uploaders_emb = (neg_uploader_emb[0] + neg_uploader_emb[1] + neg_uploader_emb[2] + neg_uploader_emb[
-            3]) / 4
+        finall_pos_uploaders_emb = (pos_uploader_emb[0] + pos_uploader_emb[
+            3]) / 2
+        finall_neg_uploaders_emb = (neg_uploader_emb[0] + neg_uploader_emb[
+            3]) / 2
 
         # 计算正样本的得分
         # 用户嵌入和正样本项目嵌入进行逐元素相乘，然后对每个用户的相乘结果求和

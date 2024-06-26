@@ -1,6 +1,9 @@
 import torch
 import numpy as np
 import world
+from datetime import datetime
+import os
+from time import time
 
 
 def UniformSample(dataset):
@@ -128,3 +131,9 @@ def RecallPrecision_ATk(test_data, r, k):
     recall = np.sum(right_pred / recall_n)
     precis = np.sum(right_pred) / precis_n
     return {'recall': recall, 'precision': precis}
+
+
+def getFileName():
+    file = f"lgn-{world.dataset}-{world.config['VAGNN_n_layers']}-{world.config['vlogger_reg']}-{world.config['cl_reg']}-{world.config['cl_temp']}-{world.config['latent_dim_rec']}" + datetime.fromtimestamp(
+        time()).strftime('%m%d%H%M')
+    return os.path.join(world.FILE_PATH, file)

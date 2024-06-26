@@ -1,0 +1,21 @@
+2024-06-25 22:07:32,935 - JuRanModel - INFO - {'latent_dim': 64, 'bpr_batch': 4096, 'n_layers': 2, 'lr': 0.001, 'test_batch': 128, 'path': './checkpoints', 'topks': '[10,20,50]', 'load': 1, 'epochs': 200, 'multicore': 1, 'pretrain': 0, 'seed': 2024, 'model': 'lgn', 'keep_prob': 0.3, 'dropout_bool': 0, 'groups': 3, 'neg': 1, 'projection_dim': 16, 'projection_dropout': 0.5, 'gpu_id': '0', 'dataset': 'wechat', 'l2_w': 0.0001, 'cl_w': 0.005, 'cl_temp': 0.5, 'single': 0}
+2024-06-25 22:07:44,000 - JuRanModel - INFO - epoch:1	batch:0	bpr_loss:0.6929218769073486	l2_loss:1.5989216566085815	cl_loss:8.35822582244873	all_loss:0.7348729372024536
+2024-06-25 22:10:06,034 - JuRanModel - INFO - epoch:1	batch:100	bpr_loss:0.6919301748275757	l2_loss:1.649690866470337	cl_loss:7.542444229125977	all_loss:0.7298073768615723
+2024-06-25 22:12:26,679 - JuRanModel - INFO - epoch:1	batch:200	bpr_loss:0.6888113021850586	l2_loss:1.720492959022522	cl_loss:6.915133476257324	all_loss:0.7235590219497681
+2024-06-25 22:14:47,866 - JuRanModel - INFO - epoch:1	batch:300	bpr_loss:0.6797995567321777	l2_loss:1.8815040588378906	cl_loss:6.718278884887695	all_loss:0.7135791182518005
+2024-06-25 22:16:04,693 - JuRanModel - INFO - EPOCH[1/200] loss0.723
+2024-06-25 22:17:39,667 - JuRanModel - INFO - {'precision': array([0.00163145, 0.00121599, 0.00083701]), 'recall': array([0.01631454, 0.02431981, 0.04185033]), 'ndcg': array([0.00845722, 0.01047368, 0.01390773])}
+2024-06-25 22:17:49,873 - JuRanModel - INFO - epoch:2	batch:0	bpr_loss:0.6651294231414795	l2_loss:2.0759105682373047	cl_loss:6.664287090301514	all_loss:0.6986584663391113
+2024-06-25 22:20:09,041 - JuRanModel - INFO - epoch:2	batch:100	bpr_loss:0.5988748669624329	l2_loss:2.8903162479400635	cl_loss:6.612403869628906	all_loss:0.6322259306907654
+2024-06-25 22:22:28,928 - JuRanModel - INFO - epoch:2	batch:200	bpr_loss:0.5026426315307617	l2_loss:4.45448112487793	cl_loss:6.583074569702148	all_loss:0.5360034108161926
+2024-06-25 22:24:50,712 - JuRanModel - INFO - epoch:2	batch:300	bpr_loss:0.4172970652580261	l2_loss:6.402054309844971	cl_loss:6.56528377532959	all_loss:0.4507637023925781
+2024-06-25 22:26:08,107 - JuRanModel - INFO - EPOCH[2/200] loss0.559
+2024-06-25 22:27:45,968 - JuRanModel - INFO - {'precision': array([0.00229012, 0.00184172, 0.00134468]), 'recall': array([0.02290115, 0.03683437, 0.06723413]), 'ndcg': array([0.01135049, 0.01482399, 0.02081676])}
+2024-06-25 22:27:56,241 - JuRanModel - INFO - epoch:3	batch:0	bpr_loss:0.38434037566185	l2_loss:7.5145673751831055	cl_loss:6.557326793670654	all_loss:0.41787847876548767
+2024-06-25 22:30:14,542 - JuRanModel - INFO - epoch:3	batch:100	bpr_loss:0.33314624428749084	l2_loss:9.260929107666016	cl_loss:6.544336318969727	all_loss:0.36679401993751526
+2024-06-25 22:32:17,511 - JuRanModel - INFO - epoch:3	batch:200	bpr_loss:0.29372096061706543	l2_loss:10.953923225402832	cl_loss:6.534992218017578	all_loss:0.32749131321907043
+2024-06-25 22:34:20,384 - JuRanModel - INFO - epoch:3	batch:300	bpr_loss:0.27515891194343567	l2_loss:12.510174751281738	cl_loss:6.527068614959717	all_loss:0.3090452551841736
+2024-06-25 22:35:27,074 - JuRanModel - INFO - EPOCH[3/200] loss0.347
+2024-06-25 22:36:55,784 - JuRanModel - INFO - {'precision': array([0.00270558, 0.00218372, 0.00156052]), 'recall': array([0.02705578, 0.04367432, 0.07802604]), 'ndcg': array([0.0134666 , 0.01763466, 0.02439679])}
+2024-06-25 22:37:05,884 - JuRanModel - INFO - epoch:4	batch:0	bpr_loss:0.25233352184295654	l2_loss:13.452592849731445	cl_loss:6.523420333862305	all_loss:0.2862958610057831
+2024-06-25 22:39:09,897 - JuRanModel - INFO - epoch:4	batch:100	bpr_loss:0.24235065281391144	l2_loss:14.865327835083008	cl_loss:6.514892578125	all_loss:0.27641165256500244

@@ -15,3 +15,6 @@ class Log(object):
 
     def add(self, text):
         self.logger.info(text)
+
+
+
