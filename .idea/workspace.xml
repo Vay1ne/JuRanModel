@@ -5,11 +5,16 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e85e28e8-cec8-45e2-919d-e75fb1774b74" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/code/Procedure.py" beforeDir="false" afterPath="$PROJECT_DIR$/code/Procedure.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/code/logger.py" beforeDir="false" afterPath="$PROJECT_DIR$/code/logger.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/code/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/code/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/code/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/code/model.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/code/my_parse.py" beforeDir="false" afterPath="$PROJECT_DIR$/code/my_parse.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/world.py" beforeDir="false" afterPath="$PROJECT_DIR$/code/world.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/JuRanModel 2024-06-25 22-07-32.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/JuRanModel 2024-06-25 22-41-20.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/JuRanModel 2024-06-25 22-53-41.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/JuRanModel 2024-06-25 23-02-15.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/JuRanModel 2024-06-25 23-04-29.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/JuRanModel 2024-06-25 23-05-22.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/JuRanModel 2024-06-26 14-05-46.log" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -27,20 +32,20 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "WebServerToolWindowFactoryState": "true",
-    "git-widget-placeholder": "master",
-    "last_opened_file_path": "F:/git_repo/JuRanModel/code",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;WebServerToolWindowFactoryState&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;last_opened_file_path&quot;: &quot;F:/git_repo/JuRanModel/code&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="F:\git_repo\JuRanModel\code" />
@@ -154,6 +159,7 @@
       <updated>1718891732319</updated>
       <workItem from="1718891733371" duration="720000" />
       <workItem from="1718990567301" duration="67624000" />
+      <workItem from="1719400980500" duration="4807000" />
     </task>
     <servers />
   </component>
@@ -213,6 +219,11 @@
           <line>7</line>
           <option name="timeStamp" value="28" />
         </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/code/model.py</url>
+          <line>136</line>
+          <option name="timeStamp" value="29" />
+        </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
   </component>
@@ -220,6 +231,6 @@
     <SUITE FILE_PATH="coverage/JuRanModel$dataloader.coverage" NAME="dataloader 覆盖结果" MODIFIED="1719113343711" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/code" />
     <SUITE FILE_PATH="coverage/JuRanModel$Procedure.coverage" NAME="Procedure 覆盖结果" MODIFIED="1719222225670" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/code" />
     <SUITE FILE_PATH="coverage/JuRanModel$model.coverage" NAME="model 覆盖结果" MODIFIED="1719222208853" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/code" />
-    <SUITE FILE_PATH="coverage/JuRanModel$main.coverage" NAME="main 覆盖结果" MODIFIED="1719298432628" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/code" />
+    <SUITE FILE_PATH="coverage/JuRanModel$main.coverage" NAME="main 覆盖结果" MODIFIED="1719401074175" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/code" />
   </component>
 </project>

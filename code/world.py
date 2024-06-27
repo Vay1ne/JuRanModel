@@ -19,8 +19,8 @@ import sys
 sys.path.append(join(CODE_PATH, 'sources'))
 
 # 这里注销掉创建checkpoints文件夹
-# if not os.path.exists(FILE_PATH):
-#     os.makedirs(FILE_PATH, exist_ok=True)
+if not os.path.exists(FILE_PATH):
+    os.makedirs(FILE_PATH, exist_ok=True)
 
 config = {}
 all_dataset = ['wechat', 'takatak']

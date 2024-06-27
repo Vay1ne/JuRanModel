@@ -33,7 +33,7 @@ if __name__ == '__main__':
     model_dir = weight_file + str(epoch) + '.model'
     while count < 10:
         start = time.time()
-        # output_information = procedure.train(epoch, dataset, model)
+        output_information = procedure.train(epoch, dataset, model)
         cprint("[valid]")
         res = procedure.test(epoch, dataset, model, 'valid', world.config['multicore'])
         hr1, ndcg1 = res['recall'][0], res['ndcg'][0]
