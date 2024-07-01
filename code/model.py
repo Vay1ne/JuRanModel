@@ -92,7 +92,6 @@ class IMP_GCN(nn.Module):
         nn.init.normal_(self.embedding_video.weight, std=0.1)
         # nn.init.xavier_uniform_(self.fc.weight, gain=1)
         # nn.init.xavier_uniform_(self.fc_g.weight, gain=1)
-        print('1')
 
     def __dropout_x(self, x, keep_prob):
         # 获取输入张量的大小
@@ -166,16 +165,6 @@ class IMP_GCN(nn.Module):
         # 将用户和项目的one-hot嵌入表示拼接在一起并转置
         one_hot_emb = torch.cat([u_one_hot, i_one_hot]).t()
 
-        # # 获取得分最高的组索引，针对上传者进行分组
-        # uploaders_top, uploaders_top_idx = torch.topk(group_scores[self.num_users:], k=1, sorted=False)
-        # uploaders_one_hot_emb = torch.eq(group_scores[self.num_users:], uploaders_top).float()
-        #
-        # # 分别获取用户和项目的one-hot嵌入表示
-        # u_one_hot = torch.ones((self.num_users, 1)).to(self.device)  # 用户的one-hot嵌入表示设置为全1
-        # i_one_hot = uploaders_one_hot_emb
-        # # 将用户和项目的one-hot嵌入表示拼接在一起并转置
-        # one_hot_emb = torch.cat([u_one_hot, i_one_hot]).t()
-
         # 创建子图列表
         subgraph_list = []
         for g in range(self.groups):
@@ -228,61 +217,12 @@ class IMP_GCN(nn.Module):
             # 否则使用原始的图结构
             g_droped = self.Graph
 
-        # 计算自有嵌入和邻居嵌入
-        ego_embed = all_emb
-        side_embed = torch.sparse.mm(g_droped[0], all_emb)
+        all_emb_list = [all_emb]
+        for layer in range(self.n_layers):
+            all_emb = torch.sparse.mm(g_droped[0], all_emb)
+            all_emb_list.append(all_emb)
 
-        # 通过全连接层和激活函数计算临时嵌入
-        temp = self.dropout(self.leaky(self.fc(ego_embed + side_embed)))
-        # 计算分组得分
-        group_scores = self.dropout(self.fc_g(temp))
-
-        # 获取得分最高的组索引
-        a_top, a_top_idx = torch.topk(group_scores, k=1, sorted=False)
-        one_hot_emb = torch.eq(group_scores, a_top).float()
-
-        # 分别获取用户和项目的one-hot嵌入表示
-        u_one_hot, i_one_hot = torch.split(one_hot_emb, [self.num_users, self.num_videos])
-        # 将项目的one-hot嵌入表示设置为全1
-        i_one_hot = torch.ones(i_one_hot.shape).to(self.device)
-        # 将用户和项目的one-hot嵌入表示拼接在一起并转置
-        one_hot_emb = torch.cat([u_one_hot, i_one_hot]).t()
-
-        # 创建子图列表
-        subgraph_list = []
-        for g in range(self.groups):
-            # 通过元素乘法生成子图
-            temp = cust_mul(g_droped[0], one_hot_emb[g], 1)
-            temp = cust_mul(temp, one_hot_emb[g], 0)
-            subgraph_list.append(temp)
-
-        # 初始化所有层的嵌入列表
-        all_emb_list = [[None for _ in range(self.groups)] for _ in range(self.n_layers)]
-        for g in range(0, self.groups):
-            # 第0层的嵌入为自有嵌入
-            all_emb_list[0][g] = ego_embed
-
-        # 计算每一层的嵌入
-        for k in range(1, self.n_layers):
-            for g in range(self.groups):
-                # 通过子图计算每一层的嵌入
-                all_emb_list[k][g] = torch.sparse.mm(subgraph_list[g], all_emb_list[k - 1][g])
-
-        # 对每一层的嵌入进行求和
-        all_emb_list = [torch.sum(torch.stack(x), 0) for x in all_emb_list]
-
-        # 如果使用单层嵌入，直接取最后一层的嵌入
-        if self.single:
-            all_emb = all_emb_list[-1]
-        else:
-            # 否则对所有层的嵌入进行加权求和
-            weights = [0.2, 0.2, 0.2, 0.2, 0.2]
-            all_emb_list = [x * w for x, w in zip(all_emb_list, weights)]
-            all_emb = torch.sum(torch.stack(all_emb_list), 0)
-            # all_emb = torch.mean(torch.stack(all_emb_list),0)
-            # all_emb = all_emb_list[-1]
-
-        # 分别获取用户和项目的嵌入
+        all_emb = torch.mean(torch.stack(all_emb_list), 0)
         users, videos = torch.split(all_emb, [self.num_users, self.num_videos])
         return users, videos
 
@@ -384,11 +324,75 @@ class IMP_GCN(nn.Module):
                               pos_emb_ego.norm(2).pow(2) +
                               neg_emb_ego.norm(2).pow(2) + uploaders_emb_ego.norm(2).pow(2)) / float(users.numel())
 
-        finall_users_emb = (users_emb[0] + users_emb[1] + users_emb[2] + users_emb[3]) / 4
-        finall_pos_uploaders_emb = (pos_uploader_emb[0] + pos_uploader_emb[
-            3]) / 2
-        finall_neg_uploaders_emb = (neg_uploader_emb[0] + neg_uploader_emb[
-            3]) / 2
+        user_emb0 = users_emb[0]
+        user_emb1 = users_emb[1]
+        user_emb2 = users_emb[2]
+        user_emb3 = users_emb[3]
+
+        uploader_emb0 = uploaders_emb[0]
+        uploader_emb1 = uploaders_emb[1]
+        uploader_emb2 = uploaders_emb[2]
+        uploader_emb3 = uploaders_emb[3]
+
+        pos_uploader_emb0 = pos_uploader_emb[0]
+        pos_uploader_emb1 = pos_uploader_emb[1]
+        pos_uploader_emb2 = pos_uploader_emb[2]
+        pos_uploader_emb3 = pos_uploader_emb[3]
+
+        neg_uploader_emb0 = neg_uploader_emb[0]
+        neg_uploader_emb1 = neg_uploader_emb[1]
+        neg_uploader_emb2 = neg_uploader_emb[2]
+        neg_uploader_emb3 = neg_uploader_emb[3]
+
+        user_emb0 = self.userProjection(user_emb0)
+        user_emb1 = self.userProjection(user_emb1)
+        user_emb2 = self.userProjection(user_emb2)
+        user_emb3 = self.userProjection(user_emb3)
+
+        uploader_emb0 = self.uploaderProjection(uploader_emb0)
+        uploader_emb1 = self.uploaderProjection(uploader_emb1)
+        uploader_emb2 = self.uploaderProjection(uploader_emb2)
+        uploader_emb3 = self.uploaderProjection(uploader_emb3)
+
+        pos_uploader_emb0 = self.uploaderProjection(pos_uploader_emb0)
+        pos_uploader_emb1 = self.uploaderProjection(pos_uploader_emb1)
+        pos_uploader_emb2 = self.uploaderProjection(pos_uploader_emb2)
+        pos_uploader_emb3 = self.uploaderProjection(pos_uploader_emb3)
+
+        neg_uploader_emb0 = self.uploaderProjection(neg_uploader_emb0)
+        neg_uploader_emb1 = self.uploaderProjection(neg_uploader_emb1)
+        neg_uploader_emb2 = self.uploaderProjection(neg_uploader_emb2)
+        neg_uploader_emb3 = self.uploaderProjection(neg_uploader_emb3)
+
+        pos_emb = self.videoProjection(pos_emb)
+        neg_emb = self.videoProjection(neg_emb)
+
+        normalize_emb_user0 = F.normalize(user_emb0, dim=1)
+        normalize_emb_user1 = F.normalize(user_emb1, dim=1)
+        normalize_emb_user2 = F.normalize(user_emb2, dim=1)
+        normalize_emb_user3 = F.normalize(user_emb3, dim=1)
+
+        normalize_emb_uploader0 = F.normalize(uploader_emb0, dim=1)
+        normalize_emb_uploader1 = F.normalize(uploader_emb1, dim=1)
+        normalize_emb_uploader2 = F.normalize(uploader_emb2, dim=1)
+        normalize_emb_uploader3 = F.normalize(uploader_emb3, dim=1)
+
+        normalize_emb_pos_uploader0 = F.normalize(pos_uploader_emb0, dim=1)
+        normalize_emb_pos_uploader1 = F.normalize(pos_uploader_emb1, dim=1)
+        normalize_emb_pos_uploader2 = F.normalize(pos_uploader_emb2, dim=1)
+        normalize_emb_pos_uploader3 = F.normalize(pos_uploader_emb3, dim=1)
+
+        normalize_emb_neg_uploader0 = F.normalize(neg_uploader_emb0, dim=1)
+        normalize_emb_neg_uploader1 = F.normalize(neg_uploader_emb1, dim=1)
+        normalize_emb_neg_uploader2 = F.normalize(neg_uploader_emb2, dim=1)
+        normalize_emb_neg_uploader3 = F.normalize(neg_uploader_emb3, dim=1)
+
+        pos_emb = F.normalize(pos_emb, dim=1)
+        neg_emb = F.normalize(neg_emb, dim=1)
+
+        finall_users_emb = (normalize_emb_user0 + normalize_emb_user3) / 2
+        finall_pos_uploaders_emb = (normalize_emb_pos_uploader0 + normalize_emb_pos_uploader3) / 2
+        finall_neg_uploaders_emb = (normalize_emb_neg_uploader0 + normalize_emb_neg_uploader3) / 2
 
         # 计算正样本的得分
         # 用户嵌入和正样本项目嵌入进行逐元素相乘，然后对每个用户的相乘结果求和
@@ -538,5 +542,8 @@ class IMP_GCN(nn.Module):
 if __name__ == '__main__':
     dataset = Loader()
     model = IMP_GCN(dataset=dataset, config=config).to(device)
-    user_ebmdding, uploader_embedding, video_embedding = model.compute()
-    print(model.calc_crosscl_loss(user_ebmdding, uploader_embedding))
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            print(name, param.shape)
+    total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f'Total number of learnable parameters: {total_params}')

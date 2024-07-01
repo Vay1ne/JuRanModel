@@ -40,5 +40,4 @@ def parse_args():
     parser.add_argument('--cl_temp', type=float, default=0.5, help='')
     parser.add_argument('--single', type=bool, default=0, help='是否单层嵌入')
 
-
     return parser.parse_args()

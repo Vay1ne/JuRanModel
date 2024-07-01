@@ -7,6 +7,7 @@ import multiprocessing
 from model import IMP_GCN
 from torch import nn, optim
 from dataloader import Loader
+from tqdm import tqdm
 
 CORES = multiprocessing.cpu_count() // 2
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -41,7 +42,7 @@ class Procedure:
         train_loader = utils.minibatch(users, posVideos, negVideos, uploaders,
                                        batch_size=world.config['bpr_batch'])
 
-        for batch_i, data in enumerate(train_loader):
+        for (batch_i, data) in tqdm(enumerate(train_loader), total=total_batch):
             batch_users, batch_posVideo, batch_negVideo, batch_uploader = data[0], data[1], \
                 data[2], data[3]
             # batch_users2, batch_posVlogger2, batch_negVlogger2 = data[1][0], data[1][1], data[1][2]
